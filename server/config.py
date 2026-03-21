@@ -54,35 +54,27 @@ class Settings(BaseSettings):
     # ------------------------------------------------------------------ #
     # Puppet integration (disabled by default)
     #
-    # Three data sources — configure one or more:
+    # Two data flows:
     #
-    #   1. PuppetDB REST API  (puppet_puppetdb_url)
+    #   1. PuppetDB REST API  (server-side pull, optional)
+    #      The server contacts PuppetDB over HTTP.
     #      Only available when PuppetDB is installed (Puppet Enterprise or
-    #      open-source with PuppetDB bolt-on).  Richest data source.
+    #      open-source with PuppetDB bolt-on).
+    #      Set puppet_puppetdb_url to enable.
     #
-    #   2. YAML fact cache    (puppet_fact_cache_dir)
-    #      Puppet master stores node facts as YAML files even without PuppetDB.
-    #      Typically at /opt/puppetlabs/puppet/cache/yaml/facts/  (Puppet 6+)
-    #      or  /var/lib/puppet/yaml/facts/  (older open-source Puppet).
-    #      Read-only access to the Puppet master filesystem is sufficient.
+    #   2. Agent push  (agent/collectors/puppet.py)
+    #      The Discoverykastle agent running on (or near) the Puppet master
+    #      reads the YAML fact cache and report files locally, then submits
+    #      the data to POST /api/v1/data/puppet.
+    #      No filesystem access is required from the Docker server container.
+    #      Configure PUPPET_FACT_CACHE_DIR / PUPPET_REPORT_DIR on the agent.
     #
-    #   3. YAML report files  (puppet_report_dir)
-    #      Puppet agents write run reports to the master.
-    #      Typically at /opt/puppetlabs/puppet/cache/reports/<certname>/
-    #      or  /var/lib/puppet/reports/<certname>/.
-    #      Provides last-run time, environment, status and resource changes.
-    #
-    # All three sources are merged per node — configure whichever are available.
     # ------------------------------------------------------------------ #
     puppet_enabled: bool = False
-    # Source 1 — PuppetDB API (optional, only if PuppetDB is installed)
+    # PuppetDB API — optional, only if PuppetDB is installed
     puppet_puppetdb_url: Optional[str] = None      # e.g. "https://puppet.example.com:8081"
     puppet_puppetdb_token: Optional[str] = None    # PE RBAC token or bearer token
-    # Source 2 — YAML fact cache directory on the Puppet master
-    puppet_fact_cache_dir: Optional[str] = None    # e.g. /opt/puppetlabs/puppet/cache/yaml/facts
-    # Source 3 — YAML report directory on the Puppet master
-    puppet_report_dir: Optional[str] = None        # e.g. /opt/puppetlabs/puppet/cache/reports
-    # Interval in seconds between Puppet syncs (default: 3600 = 1 hour)
+    # Interval in seconds between PuppetDB pull syncs (default: 3600 = 1 hour)
     puppet_sync_interval: int = 3600
 
     # ------------------------------------------------------------------ #

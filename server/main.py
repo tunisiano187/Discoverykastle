@@ -25,6 +25,7 @@ from server.api.netbox import router as netbox_router
 from server.api.modules import router as modules_router
 from server.api.setup import router as setup_router
 from server.api.webpush import router as webpush_router
+from server.api.data import router as data_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -97,6 +98,7 @@ app.include_router(inventory_router)
 app.include_router(topology_router)
 app.include_router(netbox_router)
 app.include_router(modules_router)
+app.include_router(data_router)
 
 
 @app.get("/sw.js", include_in_schema=False)
