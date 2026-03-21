@@ -20,6 +20,8 @@ from server.api.inventory import router as inventory_router
 from server.api.topology import router as topology_router
 from server.api.netbox import router as netbox_router
 from server.api.modules import router as modules_router
+from server.api.setup import router as setup_router
+from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
 # Configures console + rotating JSON file + Graylog (if configured).
@@ -74,7 +76,12 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routers
+# SetupGuard must be added AFTER CORS so CORS headers are still sent on 302/503.
+# Starlette middlewares execute in reverse registration order, so this runs first.
+app.add_middleware(SetupGuardMiddleware)
+
+# Routers — setup first so /setup is always reachable
+app.include_router(setup_router)
 app.include_router(alerts_router)
 app.include_router(inventory_router)
 app.include_router(topology_router)

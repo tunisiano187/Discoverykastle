@@ -1,0 +1,589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Discoverykastle — Setup</title>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2a2d3e; --border-focus: #5b6af0;
+    --text: #e2e4f0; --muted: #7a7f9a; --accent: #5b6af0; --accent-hover: #4a59df;
+    --success: #22c55e; --warn: #f59e0b; --error: #ef4444;
+    --input-bg: #12141e; --radius: 6px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: system-ui, -apple-system, sans-serif;
+    font-size: 14px; line-height: 1.6; min-height: 100vh; }
+
+  .page { max-width: 780px; margin: 0 auto; padding: 40px 20px 80px; }
+
+  /* Header */
+  .header { text-align: center; margin-bottom: 40px; }
+  .header h1 { font-size: 1.75rem; font-weight: 700; color: var(--text); letter-spacing: -0.02em; }
+  .header h1 span { color: var(--accent); }
+  .header p { color: var(--muted); margin-top: 6px; }
+
+  /* Banner */
+  .banner { border-radius: var(--radius); padding: 14px 18px; margin-bottom: 28px;
+    display: flex; align-items: flex-start; gap: 12px; font-size: 13px; }
+  .banner.success { background: #052e16; border: 1px solid #16a34a; color: #86efac; }
+  .banner.info    { background: #0f1b3d; border: 1px solid #3b5bdb; color: #a5b4fc; }
+  .banner-icon { font-size: 16px; flex-shrink: 0; margin-top: 1px; }
+
+  /* Sections */
+  details { background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 14px; overflow: hidden; }
+  details[open] { border-color: var(--border-focus); }
+  summary { padding: 16px 20px; cursor: pointer; font-weight: 600; font-size: 13px;
+    display: flex; justify-content: space-between; align-items: center;
+    user-select: none; list-style: none; gap: 12px; }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "▸"; color: var(--muted); transition: transform 0.15s; flex-shrink: 0; }
+  details[open] summary::after { transform: rotate(90deg); }
+  summary .badge { font-size: 11px; font-weight: 400; color: var(--muted);
+    background: var(--border); padding: 2px 8px; border-radius: 99px; }
+  summary .req-badge { background: #1a0e0e; color: #fca5a5; border: 1px solid #7f1d1d; }
+  .section-body { padding: 20px; border-top: 1px solid var(--border); }
+
+  /* Fields */
+  .field { margin-bottom: 18px; }
+  .field:last-child { margin-bottom: 0; }
+  .field label { display: block; font-size: 12px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+  .field label .required { color: var(--error); margin-left: 3px; }
+  .field label .hint { text-transform: none; font-weight: 400; letter-spacing: 0;
+    color: var(--muted); font-size: 11px; display: block; margin-top: 2px; }
+  .row { display: flex; gap: 10px; align-items: flex-start; }
+  .row input, .row select { flex: 1; min-width: 0; }
+
+  input[type="text"], input[type="password"], input[type="url"], input[type="number"],
+  input[type="email"], select, textarea {
+    width: 100%; background: var(--input-bg); border: 1px solid var(--border);
+    border-radius: var(--radius); color: var(--text); padding: 9px 12px;
+    font-size: 13px; font-family: inherit; transition: border-color 0.15s; outline: none; }
+  input:focus, select:focus, textarea:focus { border-color: var(--border-focus); }
+  select option { background: var(--surface); }
+
+  /* Toggle */
+  .toggle-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .toggle-row .desc { font-size: 12px; color: var(--muted); }
+  .toggle { position: relative; display: inline-flex; align-items: center;
+    width: 44px; height: 24px; cursor: pointer; flex-shrink: 0; }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .slider { position: absolute; inset: 0; background: var(--border);
+    border-radius: 99px; transition: background 0.2s; }
+  .slider::before { content: ""; position: absolute; width: 18px; height: 18px;
+    left: 3px; top: 3px; background: #fff; border-radius: 50%; transition: transform 0.2s; }
+  .toggle input:checked + .slider { background: var(--accent); }
+  .toggle input:checked + .slider::before { transform: translateX(20px); }
+
+  /* Key gen */
+  .key-field { position: relative; }
+  .key-field input { padding-right: 100px; font-family: ui-monospace, monospace; font-size: 12px; }
+  .gen-btn { position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: var(--border); border: none; color: var(--text); padding: 4px 10px;
+    border-radius: 4px; font-size: 11px; cursor: pointer; transition: background 0.15s; }
+  .gen-btn:hover { background: var(--accent); }
+
+  /* Backend pills */
+  .backend-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+  .backend-card { border: 2px solid var(--border); border-radius: var(--radius);
+    padding: 14px 16px; cursor: pointer; transition: border-color 0.15s; }
+  .backend-card:hover { border-color: var(--muted); }
+  .backend-card.selected { border-color: var(--accent); background: #0f1b3d; }
+  .backend-card input[type=radio] { display: none; }
+  .backend-card .bc-name { font-weight: 600; font-size: 13px; }
+  .backend-card .bc-desc { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .backend-card .bc-badge { font-size: 10px; padding: 1px 6px; border-radius: 99px;
+    display: inline-block; margin-top: 6px; }
+  .badge-free { background: #052e16; color: #86efac; }
+  .badge-key  { background: #1c1407; color: #fcd34d; }
+
+  /* Conditional fields */
+  .cond { display: none; }
+  .cond.visible { display: block; }
+
+  /* Divider */
+  hr { border: none; border-top: 1px solid var(--border); margin: 20px 0; }
+
+  /* Submit */
+  .actions { margin-top: 32px; display: flex; gap: 12px; align-items: center; justify-content: center; }
+  .btn-primary { background: var(--accent); color: #fff; border: none; padding: 12px 32px;
+    border-radius: var(--radius); font-size: 14px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-secondary { background: transparent; color: var(--muted); border: 1px solid var(--border);
+    padding: 12px 24px; border-radius: var(--radius); font-size: 14px; cursor: pointer; }
+
+  /* Cols */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .cols { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <div class="header">
+    <h1>Discover<span>y</span>kastle</h1>
+    <p>First-run configuration wizard</p>
+  </div>
+
+  {% if saved %}
+  <div class="banner success">
+    <span class="banner-icon">✓</span>
+    <div>
+      <strong>Configuration saved to .env</strong><br>
+      Restart the server to apply all changes, then
+      <a href="/" style="color:inherit">go to the application →</a>
+    </div>
+  </div>
+  {% else %}
+  <div class="banner info">
+    <span class="banner-icon">ℹ</span>
+    <div>
+      No <code>.env</code> file found or the server is using default insecure keys.
+      Fill in the form below — only <strong>Required</strong> fields are mandatory.
+      Everything else can be changed later by editing <code>.env</code>.
+    </div>
+  </div>
+  {% endif %}
+
+  <form method="post" action="/setup/save" autocomplete="off">
+
+    <!-- ═══════════════════════════════ REQUIRED ═══════════════════════════ -->
+    <details open>
+      <summary>Required <span class="badge req-badge">must fill</span></summary>
+      <div class="section-body">
+
+        <div class="cols">
+          <div class="field">
+            <label>Admin username <span class="required">*</span></label>
+            <input name="dkastle_admin_username" type="text" required
+              value="{{ v.get('DKASTLE_ADMIN_USERNAME', 'admin') }}" placeholder="admin">
+          </div>
+          <div class="field">
+            <label>Admin password <span class="required">*</span>
+              <span class="hint">Min 12 characters recommended</span>
+            </label>
+            <input name="dkastle_admin_password" type="password" required
+              value="{{ v.get('DKASTLE_ADMIN_PASSWORD', '') }}" placeholder="••••••••••••">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Secret key <span class="required">*</span>
+            <span class="hint">Used to sign JWT tokens — keep secret, never reuse</span>
+          </label>
+          <div class="row key-field">
+            <input name="dkastle_secret_key" id="secret_key" type="text" required
+              value="{{ v.get('DKASTLE_SECRET_KEY', '') }}"
+              placeholder="Click Generate →" style="font-family:monospace;font-size:12px;">
+            <button type="button" class="gen-btn" onclick="generateKey('secret_key','hex')">Generate</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Vault key <span class="required">*</span>
+            <span class="hint">Encrypts stored credentials — base64, 32 bytes</span>
+          </label>
+          <div class="row key-field">
+            <input name="dkastle_vault_key" id="vault_key" type="text" required
+              value="{{ v.get('DKASTLE_VAULT_KEY', '') }}"
+              placeholder="Click Generate →" style="font-family:monospace;font-size:12px;">
+            <button type="button" class="gen-btn" onclick="generateKey('vault_key','base64')">Generate</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Authorized scan CIDRs
+            <span class="hint">Comma-separated — NO scan will ever run outside these ranges</span>
+          </label>
+          <input name="dkastle_authorized_cidrs" type="text"
+            value="{{ v.get('DKASTLE_AUTHORIZED_CIDRS', '') }}"
+            placeholder="192.168.0.0/16, 10.0.0.0/8">
+        </div>
+
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════ SERVER ════════════════════════════ -->
+    <details>
+      <summary>Server <span class="badge">host, port, TLS</span></summary>
+      <div class="section-body">
+
+        <div class="cols">
+          <div class="field">
+            <label>Bind host</label>
+            <input name="dkastle_host" type="text"
+              value="{{ v.get('DKASTLE_HOST', '0.0.0.0') }}" placeholder="0.0.0.0">
+          </div>
+          <div class="field">
+            <label>Port</label>
+            <input name="dkastle_port" type="number"
+              value="{{ v.get('DKASTLE_PORT', '8443') }}" placeholder="8443">
+          </div>
+        </div>
+
+        <div class="cols">
+          <div class="field">
+            <label>TLS certificate path
+              <span class="hint">Leave empty to use auto-generated self-signed (dev only)</span>
+            </label>
+            <input name="dkastle_tls_cert" type="text"
+              value="{{ v.get('DKASTLE_TLS_CERT', '') }}" placeholder="/certs/server.crt">
+          </div>
+          <div class="field">
+            <label>TLS key path</label>
+            <input name="dkastle_tls_key" type="text"
+              value="{{ v.get('DKASTLE_TLS_KEY', '') }}" placeholder="/certs/server.key">
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Log level</label>
+          <select name="dkastle_log_level">
+            {% for lvl in ['DEBUG','INFO','WARNING','ERROR','CRITICAL'] %}
+            <option value="{{ lvl }}" {% if v.get('DKASTLE_LOG_LEVEL','INFO')==lvl %}selected{% endif %}>{{ lvl }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════ DATABASE ══════════════════════════ -->
+    <details>
+      <summary>Database <span class="badge">PostgreSQL, Redis</span></summary>
+      <div class="section-body">
+
+        <div class="cols">
+          <div class="field">
+            <label>Postgres DB</label>
+            <input name="postgres_db" type="text"
+              value="{{ v.get('POSTGRES_DB', 'discoverykastle') }}">
+          </div>
+          <div class="field">
+            <label>Postgres user</label>
+            <input name="postgres_user" type="text"
+              value="{{ v.get('POSTGRES_USER', 'dkastle') }}">
+          </div>
+        </div>
+        <div class="cols">
+          <div class="field">
+            <label>Postgres password <span class="required">*</span></label>
+            <input name="postgres_password" type="password"
+              value="{{ v.get('POSTGRES_PASSWORD', '') }}" placeholder="••••••••">
+          </div>
+          <div class="field">
+            <label>Postgres host</label>
+            <input name="postgres_host" type="text"
+              value="{{ v.get('POSTGRES_HOST', 'db') }}">
+          </div>
+        </div>
+        <div class="field">
+          <label>Redis URL</label>
+          <input name="redis_url" type="text"
+            value="{{ v.get('REDIS_URL', 'redis://redis:6379/0') }}"
+            placeholder="redis://redis:6379/0">
+        </div>
+
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════ LOGGING ═══════════════════════════ -->
+    <details>
+      <summary>Logging <span class="badge">file, Graylog</span></summary>
+      <div class="section-body">
+
+        <div class="field">
+          <label>Log file path
+            <span class="hint">JSON rotating file (20 MB × 10). Leave empty to disable.</span>
+          </label>
+          <input name="dkastle_log_file" type="text"
+            value="{{ v.get('DKASTLE_LOG_FILE', 'discoverykastle.log') }}"
+            placeholder="discoverykastle.log">
+        </div>
+
+        <hr>
+
+        <div class="field">
+          <label>Graylog host
+            <span class="hint">Leave empty to disable Graylog. Requires: pip install 'discoverykastle-server[graylog]'</span>
+          </label>
+          <input name="dkastle_graylog_host" type="text"
+            value="{{ v.get('DKASTLE_GRAYLOG_HOST', '') }}"
+            placeholder="graylog.internal" id="graylog_host"
+            oninput="toggleGraylog()">
+        </div>
+
+        <div id="graylog_extra" class="cond cols">
+          <div class="field">
+            <label>Graylog port (GELF/UDP)</label>
+            <input name="dkastle_graylog_port" type="number"
+              value="{{ v.get('DKASTLE_GRAYLOG_PORT', '12201') }}">
+          </div>
+          <div class="field">
+            <label>Graylog facility</label>
+            <input name="dkastle_graylog_facility" type="text"
+              value="{{ v.get('DKASTLE_GRAYLOG_FACILITY', 'discoverykastle') }}">
+          </div>
+        </div>
+
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════ AI ═══════════════════════════════ -->
+    <details>
+      <summary>AI Enrichment <span class="badge">optional, CVE triage only</span></summary>
+      <div class="section-body">
+
+        <div class="banner info" style="margin-bottom:18px">
+          <span class="banner-icon">ℹ</span>
+          <div>AI is used <strong>only</strong> for contextual CVE triage — assessing whether
+          a vulnerability's exploitation prerequisites are met on a specific host.
+          Everything else (alerts, topology, sync) uses rules. <strong>Ollama is recommended</strong>:
+          local, free, no data leaves your network.</div>
+        </div>
+
+        <div class="field">
+          <div class="toggle-row">
+            <div>
+              <strong>Enable AI enrichment</strong>
+              <div class="desc">Enrich CVEs with contextual exploitability assessment</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" name="dkastle_ai_enabled" id="ai_enabled"
+                value="true" {% if v.get('DKASTLE_AI_ENABLED','false').lower()=='true' %}checked{% endif %}
+                onchange="toggleAI()">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div id="ai_config" class="cond">
+          <hr>
+          <div class="field">
+            <label>Backend
+              <span class="hint">Ollama recommended — local, private, free</span>
+            </label>
+            <div class="backend-grid" id="backend_grid">
+              <!-- auto -->
+              <label class="backend-card {% if v.get('DKASTLE_AI_BACKEND','auto')=='auto' %}selected{% endif %}"
+                onclick="selectBackend('auto', this)">
+                <input type="radio" name="dkastle_ai_backend" value="auto"
+                  {% if v.get('DKASTLE_AI_BACKEND','auto')=='auto' %}checked{% endif %}>
+                <div class="bc-name">Auto</div>
+                <div class="bc-desc">Tries Ollama first, falls back to Anthropic</div>
+                <span class="bc-badge badge-free">recommended</span>
+              </label>
+              <!-- ollama -->
+              <label class="backend-card {% if v.get('DKASTLE_AI_BACKEND')=='ollama' %}selected{% endif %}"
+                onclick="selectBackend('ollama', this)">
+                <input type="radio" name="dkastle_ai_backend" value="ollama"
+                  {% if v.get('DKASTLE_AI_BACKEND')=='ollama' %}checked{% endif %}>
+                <div class="bc-name">Ollama</div>
+                <div class="bc-desc">Local inference — no API key, no data sent outside</div>
+                <span class="bc-badge badge-free">free · local</span>
+              </label>
+              <!-- dynamic backends from registry -->
+              {% for b in ai_backends %}
+              {% if b.name not in ['auto','ollama'] %}
+              <label class="backend-card {% if v.get('DKASTLE_AI_BACKEND')==b.name %}selected{% endif %}"
+                onclick="selectBackend('{{ b.name }}', this)">
+                <input type="radio" name="dkastle_ai_backend" value="{{ b.name }}"
+                  {% if v.get('DKASTLE_AI_BACKEND')==b.name %}checked{% endif %}>
+                <div class="bc-name">{{ b.label }}</div>
+                <div class="bc-desc"></div>
+                <span class="bc-badge {% if b.requires_key == 'true' %}badge-key{% else %}badge-free{% endif %}">
+                  {% if b.requires_key == 'true' %}API key required{% else %}free{% endif %}
+                </span>
+              </label>
+              {% endif %}
+              {% endfor %}
+            </div>
+          </div>
+
+          <!-- Ollama config -->
+          <div id="ollama_config" class="cond cols">
+            <div class="field">
+              <label>Ollama URL</label>
+              <input name="dkastle_ollama_url" type="url"
+                value="{{ v.get('DKASTLE_OLLAMA_URL', 'http://localhost:11434') }}">
+            </div>
+            <div class="field">
+              <label>Ollama model
+                <span class="hint">llama3.2 · mistral · phi3:mini · deepseek-r1:7b</span>
+              </label>
+              <input name="dkastle_ollama_model" type="text"
+                value="{{ v.get('DKASTLE_OLLAMA_MODEL', 'llama3.2') }}"
+                placeholder="llama3.2">
+            </div>
+          </div>
+
+          <!-- Anthropic config -->
+          <div id="anthropic_config" class="cond">
+            <div class="field">
+              <label>Anthropic API key
+                <span class="hint">sk-ant-... — get yours at console.anthropic.com</span>
+              </label>
+              <input name="dkastle_anthropic_api_key" type="password"
+                value="{{ v.get('DKASTLE_ANTHROPIC_API_KEY', '') }}"
+                placeholder="sk-ant-...">
+            </div>
+            <div class="field">
+              <label>Anthropic model</label>
+              <select name="dkastle_anthropic_model">
+                {% for m in ['claude-haiku-4-5-20251001','claude-sonnet-4-6'] %}
+                <option value="{{ m }}" {% if v.get('DKASTLE_ANTHROPIC_MODEL','claude-haiku-4-5-20251001')==m %}selected{% endif %}>{{ m }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+
+        </div><!-- /ai_config -->
+
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════ NETBOX ════════════════════════════ -->
+    <details>
+      <summary>NetBox <span class="badge">optional sync</span></summary>
+      <div class="section-body">
+
+        <div class="field">
+          <label>NetBox URL
+            <span class="hint">Leave empty to disable NetBox integration</span>
+          </label>
+          <input name="dkastle_netbox_url" type="url"
+            value="{{ v.get('DKASTLE_NETBOX_URL', '') }}"
+            placeholder="https://netbox.example.com" id="netbox_url"
+            oninput="toggleNetbox()">
+        </div>
+
+        <div id="netbox_extra" class="cond">
+          <div class="cols">
+            <div class="field">
+              <label>NetBox API token</label>
+              <input name="dkastle_netbox_token" type="password"
+                value="{{ v.get('DKASTLE_NETBOX_TOKEN', '') }}" placeholder="••••••••">
+            </div>
+            <div class="field">
+              <label>Bidirectional sync</label>
+              <div class="toggle-row" style="margin-top:8px">
+                <span class="desc">Push discovered assets back to NetBox</span>
+                <label class="toggle">
+                  <input type="checkbox" name="dkastle_netbox_sync_enabled" value="true"
+                    {% if v.get('DKASTLE_NETBOX_SYNC_ENABLED','false').lower()=='true' %}checked{% endif %}>
+                  <span class="slider"></span>
+                </label>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </details>
+
+    <!-- ═══════════════════════════════ NOTIFICATIONS ═════════════════════ -->
+    <details>
+      <summary>Notifications <span class="badge">SMTP, Slack, webhook</span></summary>
+      <div class="section-body">
+
+        <div class="cols">
+          <div class="field">
+            <label>SMTP host</label>
+            <input name="dkastle_smtp_host" type="text"
+              value="{{ v.get('DKASTLE_SMTP_HOST', '') }}" placeholder="smtp.example.com">
+          </div>
+          <div class="field">
+            <label>SMTP port</label>
+            <input name="dkastle_smtp_port" type="number"
+              value="{{ v.get('DKASTLE_SMTP_PORT', '587') }}">
+          </div>
+        </div>
+        <div class="cols">
+          <div class="field">
+            <label>SMTP user</label>
+            <input name="dkastle_smtp_user" type="email"
+              value="{{ v.get('DKASTLE_SMTP_USER', '') }}" placeholder="alerts@example.com">
+          </div>
+          <div class="field">
+            <label>SMTP password</label>
+            <input name="dkastle_smtp_password" type="password"
+              value="{{ v.get('DKASTLE_SMTP_PASSWORD', '') }}" placeholder="••••••••">
+          </div>
+        </div>
+        <div class="field">
+          <label>Slack webhook URL</label>
+          <input name="dkastle_slack_webhook_url" type="url"
+            value="{{ v.get('DKASTLE_SLACK_WEBHOOK_URL', '') }}"
+            placeholder="https://hooks.slack.com/services/...">
+        </div>
+        <div class="field">
+          <label>Generic webhook URL</label>
+          <input name="dkastle_generic_webhook_url" type="url"
+            value="{{ v.get('DKASTLE_GENERIC_WEBHOOK_URL', '') }}"
+            placeholder="https://your-webhook.example.com">
+        </div>
+
+      </div>
+    </details>
+
+    <div class="actions">
+      <button type="submit" class="btn-primary">Save configuration</button>
+    </div>
+
+  </form>
+</div><!-- /page -->
+
+<script>
+// ── Key generation ────────────────────────────────────────────────────────────
+async function generateKey(fieldId, kind) {
+  const r = await fetch('/setup/generate-key?kind=' + kind);
+  const d = await r.json();
+  document.getElementById(fieldId).value = d.key;
+}
+
+// ── AI section toggle ─────────────────────────────────────────────────────────
+function toggleAI() {
+  const on = document.getElementById('ai_enabled').checked;
+  document.getElementById('ai_config').classList.toggle('visible', on);
+  if (on) updateBackendFields();
+}
+
+// ── Backend card selection ────────────────────────────────────────────────────
+function selectBackend(name, card) {
+  document.querySelectorAll('.backend-card').forEach(c => c.classList.remove('selected'));
+  card.classList.add('selected');
+  card.querySelector('input[type=radio]').checked = true;
+  updateBackendFields();
+}
+
+function updateBackendFields() {
+  const checked = document.querySelector('input[name="dkastle_ai_backend"]:checked');
+  const name = checked ? checked.value : 'auto';
+  const showOllama    = name === 'auto' || name === 'ollama';
+  const showAnthropic = name === 'auto' || name === 'anthropic';
+  document.getElementById('ollama_config').classList.toggle('visible', showOllama);
+  document.getElementById('anthropic_config').classList.toggle('visible', showAnthropic);
+}
+
+// ── Graylog / NetBox conditional fields ──────────────────────────────────────
+function toggleGraylog() {
+  const v = document.getElementById('graylog_host').value.trim();
+  document.getElementById('graylog_extra').classList.toggle('visible', v.length > 0);
+}
+function toggleNetbox() {
+  const v = document.getElementById('netbox_url').value.trim();
+  document.getElementById('netbox_extra').classList.toggle('visible', v.length > 0);
+}
+
+// ── Init on page load ─────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  toggleAI();
+  toggleGraylog();
+  toggleNetbox();
+});
+</script>
+</body>
+</html>
