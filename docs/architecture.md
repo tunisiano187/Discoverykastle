@@ -137,6 +137,8 @@ Agent                          Server                         Operator
 | `psutil` | Host resource and service enumeration |
 | `grype` | CVE scanning for installed packages |
 | `paramiko` | Low-level SSH for custom device interactions |
+| `ldap3` | MIT — Active Directory LDAP queries (AD security audit) |
+| `pywin32` | PSF — Windows registry, WMI, services (Windows-only) |
 | `httpx` | Async HTTP client for REST API calls |
 | `websockets` | Persistent WebSocket connection to server |
 

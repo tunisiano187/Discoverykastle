@@ -17,6 +17,11 @@ Agents can perform the following actions, always within the scope authorized by 
 | **Host enumeration** | OS detection, installed packages, running services, listening ports, scheduled tasks, users |
 | **CVE analysis** | Match installed packages against known CVE databases (Grype + NVD API) |
 | **Patch assessment** | Identify missing OS patches and available updates |
+| **Windows CIS hardening** | CIS Benchmark checks via Python + PowerShell (account policy, registry, firewall, audit policy, services) |
+| **Wazuh integration** | Read and normalize Wazuh SCA + vulnerability results if Wazuh agent is installed |
+| **Active Directory audit** | LDAP-based AD security checks: Kerberoasting, AS-REP, delegation, DCSync risk, password policy, privileged groups |
+| **Linux hardening (Lynis)** | Run Lynis if installed; parse hardening index, warnings, compliance results |
+| **Linux hardening (Python)** | CIS checks: SSH config, sysctl, filesystem mounts, users, sudo, AppArmor/SELinux, firewall, cron, auditd |
 | **Interface enumeration** | List all network interfaces, IPs, MACs, link state, VLAN membership |
 | **Network scanning** | Full nmap scan of authorized CIDRs (TCP/UDP, service/version detection, OS fingerprinting) |
 | **Device probing** | SSH/API connection to network devices; extract hostname, firmware version, running config, ARP table, MAC table, routing table, VLAN config |
@@ -106,15 +111,54 @@ Collects:
 
 Tools used: `psutil`, direct `/proc` and system file reads, `subprocess` calls to package managers.
 
-### `security` — CVE and Patch Analysis
+### `security` — Security Assessment
 
-Collects:
-- CVE matches for all installed packages (via Grype with offline Grype DB, and NVD API for recent CVEs)
-- Available updates from package manager (`apt-get -s upgrade`, `dnf check-update`, etc.)
+The security module is OS-aware and automatically selects the appropriate scanner. See [Security Modules](security-modules.md) for full details.
+
+#### OS Routing
+
+```
+Windows → Wazuh integration (if installed) + Native CIS checks (PowerShell + Python)
+          + Active Directory audit (if domain-joined, via LDAP — ldap3, MIT license)
+
+Linux   → Lynis (if installed, GPL v3 — called externally, not bundled)
+          + Python CIS checks (always, fills gaps or full fallback if no Lynis)
+```
+
+#### Windows Checks
+
+- **Wazuh integration**: if the Wazuh agent is already installed on the host, its last SCA and vulnerability scan results are read and normalized (no re-scan triggered)
+- **Native CIS checks** (when Wazuh is absent or to complement it): account policies, password settings, firewall profiles, audit policies, registry security settings (WDigest, LSA protection, SMBv1, NTLMv2), service audit, shared folders, Windows Update status, Event Log analysis (failed logins, new services, log clearing)
+- Tools: Python `winreg`, `pywin32` (PSF license), PowerShell subprocesses
+
+#### Active Directory Checks (Windows, if domain-joined)
+
+Uses `ldap3` (MIT license) — native LDAP queries, no external tools, no bundled binaries:
+
+- Domain info, domain controllers, FSMO roles
+- Password policy (default + Fine-Grained Password Policies)
+- Privileged group membership (Domain Admins, Enterprise Admins, Schema Admins, etc.)
+- **Kerberoastable accounts** (SPN set, RC4 encryption)
+- **AS-REP roastable accounts** (pre-auth not required)
+- **Delegation issues** (unconstrained, constrained with protocol transition, RBCD)
+- **DCSync risk** (accounts with replication rights outside standard principals)
+- AdminSDHolder anomalies
+- GPO enumeration and permission review
+- LAPS deployment coverage
+
+#### Linux Checks
+
+- **Lynis** (if present): full audit, parse hardening index, warnings, suggestions, compliance results
+- **Python fallback** (always runs, full if no Lynis): filesystem mount options, sysctl network/kernel parameters, SSH config audit (20+ checks), user accounts and sudo, AppArmor/SELinux status, firewall rules, cron permissions, audit logging, kernel hardening (GRUB password, ASLR, module blacklisting)
+
+#### CVE / Patch Analysis (all OS)
+
+- CVE matches for all installed packages via Grype (offline DB) and NVD API for recent CVEs
+- Available updates from package manager
 - CVSS scores and severity classifications
 - Remediation suggestions
 
-Reports: structured vulnerability list with CVE IDs, affected package, installed version, fixed version, CVSS score.
+Reports: structured finding list and vulnerability list. See [Security Modules — Output Format](security-modules.md#output-format).
 
 ### `network` — Interface Enumeration
 
