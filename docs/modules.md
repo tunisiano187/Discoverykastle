@@ -63,10 +63,17 @@ Enriches host detail responses with:
 - Generates a Markdown **network plan** on demand (`GET /api/v1/topology/export/markdown`)
 
 ### `builtin-netbox`
-Syncs discovered assets to NetBox:
-- IP addresses → `ipam/ip-addresses/`
-- Prefixes/subnets → `ipam/prefixes/`
-- Network devices → `dcim/devices/`
+Bidirectional sync with NetBox.
+
+**At startup** (if configured), automatically imports existing NetBox data:
+| NetBox object | → Local record |
+|---|---|
+| `ipam/prefixes/` | `Network` |
+| `ipam/ip-addresses/` | `Host` |
+| `dcim/devices/` | `NetworkDevice` |
+| `dcim/interfaces/` | `NetworkInterface` |
+
+**On discovery**, pushes newly found assets back to NetBox in real time.
 
 Configure via environment variables:
 ```
@@ -75,7 +82,11 @@ DKASTLE_NETBOX_TOKEN=your-api-token
 DKASTLE_NETBOX_SYNC_ENABLED=true
 ```
 
-Trigger a full sync: `POST /api/v1/netbox/sync`
+| Endpoint | Description |
+|---|---|
+| `GET /api/v1/netbox/status` | Status + last import date/counts |
+| `POST /api/v1/netbox/import` | Re-run import from NetBox |
+| `POST /api/v1/netbox/sync` | Push local inventory to NetBox |
 
 ---
 
