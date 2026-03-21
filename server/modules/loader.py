@@ -34,6 +34,15 @@ _BUILTIN_MODULES = [
     "server.modules.builtin.inventory.module",
     "server.modules.builtin.topology.module",
     "server.modules.builtin.netbox.module",
+    # DNS enrichment — reverse PTR lookups + SOA domain detection.
+    # Controlled by DKASTLE_DNS_RESOLVE_ENABLED (default: true).
+    "server.modules.builtin.dns.module",
+    # Puppet integration — imports node facts from PuppetDB.
+    # Disabled by default; requires DKASTLE_PUPPETDB_ENABLED=true.
+    "server.modules.builtin.puppet.module",
+    # Ansible integration — imports facts from AWX/Tower or fact-cache.
+    # Disabled by default; requires DKASTLE_ANSIBLE_ENABLED=true.
+    "server.modules.builtin.ansible.module",
     # AI enrichment — disabled by default; activates only when
     # DKASTLE_AI_ENABLED=true and DKASTLE_ANTHROPIC_API_KEY is set.
     "server.modules.builtin.ai.module",

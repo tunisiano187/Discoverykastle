@@ -18,6 +18,68 @@ class Settings(BaseSettings):
     # Scan authorization
     authorized_cidrs: list[str] = []
     max_recursion_depth: int = 2
+    # When True (default), scanning a public IP/CIDR requires an explicit
+    # AuthorizationRequest approved by a human before proceeding.
+    # Private RFC-1918 ranges are always allowed without extra approval.
+    require_public_scan_authorization: bool = True
+
+    # ------------------------------------------------------------------ #
+    # DNS resolution (enabled by default)
+    #
+    # Performs reverse PTR lookups for discovered hosts and forward A/AAAA
+    # lookups for hostnames.  Also queries SOA/NS records to identify the
+    # Active Directory / DNS domain owning each subnet.
+    # Set dns_resolve_enabled=false to skip all DNS enrichment.
+    # ------------------------------------------------------------------ #
+    dns_resolve_enabled: bool = True
+    # Optional: IP or hostname of a specific DNS server to query.
+    # Leave empty to use the system resolver (recommended).
+    dns_server: Optional[str] = None
+    # Timeout in seconds for each DNS query
+    dns_timeout: float = 3.0
+
+    # ------------------------------------------------------------------ #
+    # Active Directory / LDAP domain info
+    #
+    # When hosts are detected inside a Windows domain, Discoverykastle can
+    # query the domain controller for computer account details (OS version,
+    # OU membership, groups).  Requires read-only LDAP credentials.
+    # ------------------------------------------------------------------ #
+    ldap_enabled: bool = False
+    ldap_server: Optional[str] = None          # e.g. "ldap://dc.example.com"
+    ldap_bind_dn: Optional[str] = None         # e.g. "CN=readonly,DC=example,DC=com"
+    ldap_bind_password: Optional[str] = None
+    ldap_base_dn: Optional[str] = None         # e.g. "DC=example,DC=com"
+
+    # ------------------------------------------------------------------ #
+    # Puppet integration (disabled by default)
+    #
+    # When enabled, Discoverykastle pulls node facts from PuppetDB at
+    # startup and on a periodic schedule, enriching the host inventory
+    # with OS, package, and configuration data.
+    # Requires: pip install 'discoverykastle-server[puppet]'
+    # ------------------------------------------------------------------ #
+    puppetdb_enabled: bool = False
+    puppetdb_url: Optional[str] = None         # e.g. "https://puppet.example.com:8081"
+    puppetdb_token: Optional[str] = None       # PE RBAC token or basic-auth password
+    # Interval in seconds between PuppetDB syncs (default: 3600 = 1 hour)
+    puppetdb_sync_interval: int = 3600
+
+    # ------------------------------------------------------------------ #
+    # Ansible integration (disabled by default)
+    #
+    # Two collection modes:
+    #   1. AWX / Ansible Tower REST API (set ansible_awx_url + token)
+    #   2. Local fact cache directory   (set ansible_fact_cache_dir)
+    # Both modes import host facts into the inventory.
+    # ------------------------------------------------------------------ #
+    ansible_enabled: bool = False
+    ansible_awx_url: Optional[str] = None      # e.g. "https://awx.example.com"
+    ansible_awx_token: Optional[str] = None    # AWX OAuth2 token
+    # Path to Ansible fact cache directory (jsonfile or yaml cache plugin)
+    ansible_fact_cache_dir: Optional[str] = None
+    # Interval in seconds between Ansible syncs (default: 3600 = 1 hour)
+    ansible_sync_interval: int = 3600
 
     # Notifications
     smtp_host: Optional[str] = None
