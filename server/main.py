@@ -11,6 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from server.logging_config import setup_logging
 from server.database import init_db
 from server.modules.loader import load_all
 from server.modules.registry import registry
@@ -20,29 +21,38 @@ from server.api.topology import router as topology_router
 from server.api.netbox import router as netbox_router
 from server.api.modules import router as modules_router
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-)
+# Must be called before any other module creates a logger.
+# Configures console + rotating JSON file + Graylog (if configured).
+setup_logging()
 logger = logging.getLogger("dkastle.server")
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("Discoverykastle server starting up...")
+    import time
+    t0 = time.monotonic()
+    logger.info("Discoverykastle server starting up...", extra={"event": "startup"})
 
-    # Initialize DB tables
     await init_db()
-    logger.info("Database initialized.")
+    logger.info("Database initialized.", extra={"event": "db_init"})
 
-    # Load all modules (built-in + entry points + ./modules/ directory)
     load_all()
     await registry.setup_all()
-    logger.info("Modules loaded: %s", [m["name"] for m in registry.list_modules()])
+    module_names = [m["name"] for m in registry.list_modules()]
+    logger.info(
+        "Modules loaded: %s",
+        module_names,
+        extra={
+            "event": "modules_loaded",
+            "module_count": len(module_names),
+            "modules": module_names,
+            "duration_ms": round((time.monotonic() - t0) * 1000),
+        },
+    )
 
     yield
 
-    logger.info("Discoverykastle server shutting down...")
+    logger.info("Discoverykastle server shutting down...", extra={"event": "shutdown"})
     await registry.teardown_all()
 
 

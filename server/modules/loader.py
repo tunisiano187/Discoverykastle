@@ -34,6 +34,9 @@ _BUILTIN_MODULES = [
     "server.modules.builtin.inventory.module",
     "server.modules.builtin.topology.module",
     "server.modules.builtin.netbox.module",
+    # AI enrichment — disabled by default; activates only when
+    # DKASTLE_AI_ENABLED=true and DKASTLE_ANTHROPIC_API_KEY is set.
+    "server.modules.builtin.ai.module",
 ]
 
 

@@ -49,6 +49,19 @@ dev = [
     "ruff>=0.4",
 ]
 
+# pip install 'discoverykastle-server[graylog]'
+# Required when DKASTLE_GRAYLOG_HOST is set.
+graylog = [
+    "graypy>=2.1",
+]
+
+# pip install 'discoverykastle-server[ai]'
+# Required when DKASTLE_AI_ENABLED=true.
+# Only install if you explicitly need AI-powered contextual CVE triage.
+ai = [
+    "anthropic>=0.40",
+]
+
 # ------------------------------------------------------------------
 # Entry point group for external modules
 # External packages declare their module class here:
