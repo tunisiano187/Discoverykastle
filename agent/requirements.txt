@@ -1,0 +1,19 @@
+# Discoverykastle agent — Python dependencies
+#
+# Install:
+#   pip install -r requirements.txt
+#
+# Windows only (Windows Service):
+#   pip install pywin32
+
+# HTTP client — mTLS support, async
+httpx>=0.27.0
+
+# YAML parsing — reads Puppet YAML fact cache and run reports
+# (also handles Ruby-tagged YAML with a custom loader)
+pyyaml>=6.0.1
+
+# Windows Service wrapper (Windows only)
+# Install manually on Windows:
+#   pip install pywin32
+# pywin32>=306
