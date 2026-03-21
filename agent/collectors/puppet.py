@@ -1,34 +1,49 @@
 """
-Agent-side Puppet collector.
+Discoverykastle (DK) agent — Puppet collector.
 
-Runs on the host that has access to the Puppet master's vardir (either directly
-on the Puppet master, or on a host with a read-only bind/NFS mount of vardir).
+Data flow
+─────────
+  Puppet agents  →  reports/facts  →  Puppet server  (Puppet protocol)
+                                            │
+                              DK agent  (this collector)
+                              runs ON the Puppet server host,
+                              reads the Puppet server's vardir
+                                            │
+                              DK server  POST /api/v1/data/puppet
 
-Reads two data sources:
-  1. YAML fact cache  — $vardir/yaml/facts/<certname>.yaml
-  2. YAML run reports — $vardir/reports/<certname>/<timestamp>.yaml  (last only)
+The DK agent is deployed on the Puppet server (or any host with read-only
+access to the Puppet server's vardir, e.g. an NFS/bind mount).
+It is NOT a Puppet agent — it never speaks to a Puppet master or compile
+catalogs.  It simply reads the files that Puppet agents have already written
+to the Puppet server's filesystem and forwards them to the DK server.
 
-Converts the data to JSON and sends a single batch to the server via:
+Data sources read by the DK agent on the Puppet server:
+  1. YAML fact cache   — $vardir/yaml/facts/<certname>.yaml
+     Written by the Puppet server after each Puppet agent run.
+  2. YAML run reports  — $vardir/reports/<certname>/<timestamp>.yaml  (last only)
+     Written by the Puppet server when a Puppet agent submits its run report.
+
+The data is converted to JSON and submitted as a single batch to the DK server:
   POST /api/v1/data/puppet
 
-Configuration — all via environment variables:
+Configuration — all via environment variables (set on the DK agent host):
 
   DKASTLE_SERVER_URL          Base URL of the Discoverykastle server
                               e.g. https://discoverykastle.example.com:8443
-  DKASTLE_AGENT_ID            UUID of this agent (from registration)
-  DKASTLE_AGENT_CERT          Path to the agent's mTLS client certificate (PEM)
-  DKASTLE_AGENT_KEY           Path to the agent's mTLS private key (PEM)
-  DKASTLE_AGENT_CA            Path to the server's CA certificate (PEM)
+  DKASTLE_AGENT_ID            UUID of this DK agent (from registration)
+  DKASTLE_AGENT_CERT          Path to the DK agent's mTLS client certificate (PEM)
+  DKASTLE_AGENT_KEY           Path to the DK agent's mTLS private key (PEM)
+  DKASTLE_AGENT_CA            Path to the DK server's CA certificate (PEM)
 
-  PUPPET_FACT_CACHE_DIR       Path to the Puppet YAML fact cache directory
+  PUPPET_FACT_CACHE_DIR       Path to the Puppet server's YAML fact cache
                               Default: /opt/puppetlabs/puppet/cache/yaml/facts
                               Older:   /var/lib/puppet/yaml/facts
-  PUPPET_REPORT_DIR           Path to the Puppet run report directory
+  PUPPET_REPORT_DIR           Path to the Puppet server's run report directory
                               Default: /opt/puppetlabs/puppet/cache/reports
                               Older:   /var/lib/puppet/reports
   PUPPET_BATCH_SIZE           Number of nodes per HTTP request (default: 50)
 
-Usage (standalone or called by the agent scheduler):
+Usage (called by the DK agent scheduler or run standalone):
   python -m agent.collectors.puppet
   python agent/collectors/puppet.py
 """

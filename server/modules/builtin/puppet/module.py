@@ -1,28 +1,40 @@
 """
-Built-in Puppet integration module — server side.
+Built-in Puppet integration module — DK server side.
+
+Data flow:
+
+  Puppet agents (on managed nodes)
+        │  Puppet protocol (HTTPS + catalog/report)
+        ▼
+  Puppet server  ←  writes fact cache + run reports to vardir
+        │
+  DK agent (agent/collectors/puppet.py)
+        │  deployed ON the Puppet server host; reads vardir files
+        │  Puppet agent != DK agent: the DK agent never speaks Puppet
+        ▼
+  POST /api/v1/data/puppet  →  this module (_upsert_host)
 
 Responsibility split:
 
-  SERVER (this module)
+  DK SERVER (this module)
   ─────────────────────────────────────────────────────────────────────
-  • PuppetDB REST API (optional, only if PuppetDB is installed)
-    The server contacts PuppetDB over HTTP.  This is only available when
-    PuppetDB is part of the Puppet infrastructure; it is NOT required.
-    Configured via DKASTLE_PUPPET_PUPPETDB_URL.
+  • PuppetDB REST API pull (optional, only if PuppetDB is installed)
+    The DK server contacts PuppetDB over HTTP when
+    DKASTLE_PUPPET_PUPPETDB_URL is set.  PuppetDB is NOT required.
 
-  • Host upsert logic shared with the data ingestion API
-    When an agent submits a Puppet batch via POST /api/v1/data/puppet,
-    the API endpoint calls _upsert_host() from this module directly.
+  • _upsert_host() — shared logic called both by the PuppetDB pull loop
+    and by the data ingestion endpoint when a DK agent submits a batch.
 
-  AGENT (agent/collectors/puppet.py)
+  DK AGENT (agent/collectors/puppet.py)
   ─────────────────────────────────────────────────────────────────────
-  • YAML fact cache  ($vardir/yaml/facts/*.yaml)
-  • YAML run reports ($vardir/reports/<certname>/*.yaml)
-  The agent running on (or near) the Puppet master reads these files,
-  converts them to JSON, and POSTs them to POST /api/v1/data/puppet.
-  No filesystem access is required from the Docker server container.
+  The DK agent is deployed on the Puppet server host.
+  It reads the files written there by Puppet agents:
+    • YAML fact cache   ($vardir/yaml/facts/*.yaml)
+    • YAML run reports  ($vardir/reports/<certname>/*.yaml)
+  It converts them to JSON and POSTs batches to POST /api/v1/data/puppet.
+  No filesystem access is required from the Docker DK server container.
 
-Configuration (DKASTLE_* env vars):
+Configuration (DKASTLE_* env vars — set on the DK server):
   DKASTLE_PUPPET_ENABLED=false
   DKASTLE_PUPPET_PUPPETDB_URL=https://puppet.example.com:8081  (optional)
   DKASTLE_PUPPET_PUPPETDB_TOKEN=<PE RBAC token>                (optional)

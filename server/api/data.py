@@ -8,12 +8,16 @@ set by the TLS termination layer or Nginx upstream).
 Puppet-specific endpoint:
   POST /api/v1/data/puppet
     Accepts a batch of Puppet node facts and last-run reports collected by
-    the agent running on the Puppet master (or on a host with access to the
-    Puppet master's vardir).
+    the DK agent running on the Puppet server host.
 
-    The agent reads the YAML fact cache and/or report files locally, converts
-    them to JSON, and submits them here.  The server-side Puppet module then
-    processes and upserts each node into the host inventory.
+    Data flow:
+      Puppet agents → Puppet server (writes fact cache + reports to vardir)
+      DK agent (on Puppet server) → reads those files → submits here
+
+    The DK agent (agent/collectors/puppet.py) is NOT a Puppet agent.
+    It reads the YAML files already written by Puppet agents to the Puppet
+    server's vardir, converts them to JSON, and submits them here.
+    The server-side Puppet module then upserts each node into the inventory.
 """
 
 from __future__ import annotations
@@ -121,12 +125,14 @@ async def ingest_puppet_data(
     x_agent_id: str | None = Header(None, alias="X-Agent-ID"),
 ) -> PuppetBatchResult:
     """
-    Receive a batch of Puppet node facts and reports from an agent.
+    Receive a batch of Puppet node facts and reports from a DK agent.
 
-    The agent running on (or near) the Puppet master collects YAML fact-cache
-    files and YAML run reports, serialises them to JSON, and POSTs them here.
+    The DK agent is deployed on the Puppet server host.  After Puppet agents
+    have finished their runs and written facts + reports to the Puppet server's
+    vardir, the DK agent reads those YAML files, converts them to JSON, and
+    POSTs them here.
 
-    Authentication: mTLS — the agent certificate fingerprint or UUID must
+    Authentication: mTLS — the DK agent certificate fingerprint or UUID must
     match a registered agent in the database.
     """
     agent = await _get_agent(db, x_agent_fingerprint, x_agent_id)
