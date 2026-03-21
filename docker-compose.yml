@@ -1,0 +1,52 @@
+# Discoverykastle — Infrastructure containers
+#
+# Provides PostgreSQL and Redis for the server.
+# The server itself runs natively (see install.sh / systemd service).
+#
+# Usage:
+#   docker compose up -d          # start
+#   docker compose down           # stop (keep data)
+#   docker compose down -v        # stop + erase all data
+
+services:
+
+  db:
+    image: postgres:16-alpine
+    container_name: dkastle-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB:-discoverykastle}
+      POSTGRES_USER:     ${POSTGRES_USER:-dkastle}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
+    ports:
+      - "127.0.0.1:5432:5432"   # bind to localhost only
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-dkastle} -d ${POSTGRES_DB:-discoverykastle}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 10s
+
+  redis:
+    image: redis:7-alpine
+    container_name: dkastle-redis
+    restart: unless-stopped
+    command: redis-server --save 60 1 --loglevel warning
+    ports:
+      - "127.0.0.1:6379:6379"   # bind to localhost only
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 5s
+
+volumes:
+  pgdata:
+    name: dkastle-pgdata
+  redisdata:
+    name: dkastle-redisdata
