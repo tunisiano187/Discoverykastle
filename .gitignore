@@ -1,0 +1,121 @@
+# ============================================================
+# Secrets and environment files — NEVER commit these
+# ============================================================
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.p12
+*.pfx
+certs/
+secrets/
+vault/
+
+# ============================================================
+# Python
+# ============================================================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+.venv/
+venv/
+ENV/
+env/
+.uv/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.coveragerc
+
+# mypy / ruff / black
+.mypy_cache/
+.ruff_cache/
+.dmypy.json
+dmypy.json
+
+# ============================================================
+# Node.js / Frontend
+# ============================================================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.npm
+.yarn/cache
+.yarn/unplugged
+.pnp.*
+dist/
+.next/
+.nuxt/
+.cache/
+*.local
+
+# ============================================================
+# Docker
+# ============================================================
+docker-compose.override.yml
+
+# ============================================================
+# Database
+# ============================================================
+*.sqlite
+*.db
+*.sql.gz
+backups/
+
+# ============================================================
+# OS and IDE
+# ============================================================
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# ============================================================
+# Logs
+# ============================================================
+*.log
+logs/
+
+# ============================================================
+# Temporary files
+# ============================================================
+tmp/
+temp/
+*.tmp
+*.bak
+
+# ============================================================
+# nmap scan outputs (may contain sensitive network data)
+# ============================================================
+*.nmap
+*.xml
+*.gnmap
+scan-results/
