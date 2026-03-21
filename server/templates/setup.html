@@ -484,6 +484,86 @@
       </div>
     </details>
 
+    <!-- ═══════════════════════════════ WEB PUSH ════════════════════════ -->
+    <details>
+      <summary>Browser notifications <span class="badge">Web Push / VAPID</span></summary>
+      <div class="section-body">
+
+        <div class="field">
+          <div class="toggle-row">
+            <div>
+              <strong>Enable Web Push notifications</strong>
+              <div class="desc">Send instant alerts to subscribed browsers (no external service needed)</div>
+            </div>
+            <label class="toggle">
+              <input type="checkbox" name="dkastle_webpush_enabled" id="webpush_enabled"
+                value="true" {% if v.get('DKASTLE_WEBPUSH_ENABLED','false').lower()=='true' %}checked{% endif %}
+                onchange="toggleWebpush()">
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <div id="webpush_config" class="cond">
+          <hr>
+          <div class="field">
+            <label>VAPID contact email <span class="required">*</span>
+              <span class="hint">Included in push requests — browsers may display it on errors</span>
+            </label>
+            <input name="dkastle_vapid_email" type="email"
+              value="{{ v.get('DKASTLE_VAPID_EMAIL', 'admin@example.com') }}"
+              placeholder="admin@example.com">
+          </div>
+
+          <div class="field">
+            <label>VAPID public key
+              <span class="hint">Sent to browsers to authenticate your push subscription</span>
+            </label>
+            <div class="row key-field">
+              <input name="dkastle_vapid_public_key" id="vapid_public_key" type="text"
+                value="{{ v.get('DKASTLE_VAPID_PUBLIC_KEY', '') }}"
+                placeholder="Click Generate to create a key pair →"
+                style="font-family:monospace;font-size:11px;">
+              <button type="button" class="gen-btn" onclick="generateVapid()">Generate</button>
+            </div>
+          </div>
+
+          <div class="field">
+            <label>VAPID private key
+              <span class="hint">Keep secret — stored in .env, never sent to browsers</span>
+            </label>
+            <input name="dkastle_vapid_private_key" id="vapid_private_key" type="password"
+              value="{{ v.get('DKASTLE_VAPID_PRIVATE_KEY', '') }}"
+              placeholder="Generated automatically with the public key">
+          </div>
+
+          <div class="field">
+            <label>Minimum severity for push
+              <span class="hint">Only alerts at or above this level trigger a push notification</span>
+            </label>
+            <select name="dkastle_webpush_min_severity">
+              {% for lvl in ['critical','high','medium','low','info'] %}
+              <option value="{{ lvl }}"
+                {% if v.get('DKASTLE_WEBPUSH_MIN_SEVERITY','high')==lvl %}selected{% endif %}>
+                {{ lvl }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div class="banner info" style="margin-top:6px">
+            <span class="banner-icon">ℹ</span>
+            <div>
+              Requires: <code>pip install 'discoverykastle-server[webpush]'</code><br>
+              After saving, open the application in your browser — you will be asked to
+              allow notifications. No external service or account needed.
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </details>
+
     <!-- ═══════════════════════════════ NOTIFICATIONS ═════════════════════ -->
     <details>
       <summary>Notifications <span class="badge">SMTP, Slack, webhook</span></summary>
@@ -578,11 +658,26 @@ function toggleNetbox() {
   document.getElementById('netbox_extra').classList.toggle('visible', v.length > 0);
 }
 
+// ── VAPID key generation ──────────────────────────────────────────────────────
+async function generateVapid() {
+  const r = await fetch('/setup/generate-vapid');
+  const d = await r.json();
+  document.getElementById('vapid_public_key').value  = d.public_key;
+  document.getElementById('vapid_private_key').value = d.private_key;
+}
+
+// ── Web Push toggle ───────────────────────────────────────────────────────────
+function toggleWebpush() {
+  const on = document.getElementById('webpush_enabled').checked;
+  document.getElementById('webpush_config').classList.toggle('visible', on);
+}
+
 // ── Init on page load ─────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   toggleAI();
   toggleGraylog();
   toggleNetbox();
+  toggleWebpush();
 });
 </script>
 </body>

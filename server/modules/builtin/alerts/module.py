@@ -170,3 +170,14 @@ class Module(BaseModule):
                     await client.post(settings.generic_webhook_url, json=payload)
             except Exception:
                 self.logger.warning("Failed to send generic webhook notification")
+
+        if settings.webpush_enabled:
+            try:
+                from server.services.webpush import get_service
+                await get_service().notify_alert(
+                    severity=severity,
+                    message=message,
+                    alert_type=payload.get("details", {}).get("alert_type", "alert"),
+                )
+            except Exception:
+                self.logger.warning("Failed to send Web Push notification")

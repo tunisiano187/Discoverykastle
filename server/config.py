@@ -57,6 +57,30 @@ class Settings(BaseSettings):
     # a vulnerability's prerequisites are actually met on a specific host,
     # which requires reading and understanding the CVE description.
     # ------------------------------------------------------------------ #
+    # ------------------------------------------------------------------ #
+    # Web Push notifications (disabled by default)
+    #
+    # Sends browser push notifications when alerts are created.
+    # Requires: pip install 'discoverykastle-server[webpush]'
+    # Generate VAPID keys via the setup wizard or:
+    #   GET /setup/generate-vapid
+    # ------------------------------------------------------------------ #
+    webpush_enabled: bool = False
+
+    # VAPID contact email (included in push requests — required by browsers)
+    vapid_email: str = "admin@example.com"
+
+    # VAPID key pair — generate once via the setup wizard
+    vapid_private_key: str = ""
+    vapid_public_key: str = ""
+
+    # File where push subscriptions are stored (JSON, relative to working dir)
+    webpush_sub_file: str = "webpush_subscriptions.json"
+
+    # Which severity levels trigger a browser push notification
+    # Comma-separated: critical,high,medium,low,info
+    webpush_min_severity: str = "high"
+
     ai_enabled: bool = False
 
     # Backend selection: "auto" | "ollama" | "anthropic"

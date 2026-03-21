@@ -209,6 +209,13 @@ async def generate_key(kind: str = "hex") -> dict[str, str]:
     return {"key": secrets.token_hex(32)}
 
 
+@router.get("/setup/generate-vapid")
+async def generate_vapid() -> dict[str, str]:
+    """Generate a new VAPID key pair for Web Push. Returns private + public keys."""
+    from server.services.webpush import generate_vapid_keys
+    return generate_vapid_keys()
+
+
 # ──────────────────────────────────────────────────────────────────────────────
 # Helpers
 # ──────────────────────────────────────────────────────────────────────────────

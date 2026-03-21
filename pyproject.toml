@@ -62,6 +62,12 @@ ai = [
     "anthropic>=0.40",
 ]
 
+# pip install 'discoverykastle-server[webpush]'
+# Required when DKASTLE_WEBPUSH_ENABLED=true.
+webpush = [
+    "pywebpush>=2.0",
+]
+
 # ------------------------------------------------------------------
 # Entry point group for external modules
 # External packages declare their module class here:

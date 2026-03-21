@@ -8,8 +8,11 @@ from __future__ import annotations
 import logging
 
 from contextlib import asynccontextmanager
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from server.logging_config import setup_logging
 from server.database import init_db
@@ -21,6 +24,7 @@ from server.api.topology import router as topology_router
 from server.api.netbox import router as netbox_router
 from server.api.modules import router as modules_router
 from server.api.setup import router as setup_router
+from server.api.webpush import router as webpush_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -80,13 +84,32 @@ app.add_middleware(
 # Starlette middlewares execute in reverse registration order, so this runs first.
 app.add_middleware(SetupGuardMiddleware)
 
+# Static assets (webpush.js, icons, …)
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
 # Routers — setup first so /setup is always reachable
 app.include_router(setup_router)
+app.include_router(webpush_router)
 app.include_router(alerts_router)
 app.include_router(inventory_router)
 app.include_router(topology_router)
 app.include_router(netbox_router)
 app.include_router(modules_router)
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> FileResponse:
+    """
+    Serve the service worker from the root path.
+    Required so the SW scope covers the entire app (not just /static/).
+    """
+    return FileResponse(
+        str(_static_dir / "sw.js"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
 
 
 @app.get("/health")
