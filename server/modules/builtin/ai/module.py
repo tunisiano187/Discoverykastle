@@ -26,19 +26,32 @@ What this module does NOT do:
 The assessment is stored in Vulnerability.details["ai_context"] so it is
 visible in the UI and forwarded to Graylog/file logs as a structured field.
 
-Configuration:
-  DKASTLE_AI_ENABLED=true
-  DKASTLE_ANTHROPIC_API_KEY=sk-ant-...
+─────────────────────────────────────────────────────────────────────────────
+BACKENDS
+─────────────────────────────────────────────────────────────────────────────
 
-Extra dep required:
-  pip install 'discoverykastle-server[ai]'
+Two backends are supported and selected via DKASTLE_AI_BACKEND:
+
+  ollama    — Local inference via Ollama (http://localhost:11434).
+              No API key. No extra pip dependency (uses httpx).
+              Model set via DKASTLE_OLLAMA_MODEL (default: llama3.2).
+              Recommended for air-gapped / privacy-sensitive environments.
+
+  anthropic — Anthropic cloud (Claude Haiku by default).
+              Requires DKASTLE_ANTHROPIC_API_KEY and:
+              pip install 'discoverykastle-server[ai]'
+
+  auto      — Use Ollama if DKASTLE_OLLAMA_URL is reachable, else Anthropic.
+
 ─────────────────────────────────────────────────────────────────────────────
 """
 
 from __future__ import annotations
 
+import abc
 import asyncio
 import hashlib
+import json
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -48,43 +61,148 @@ if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
     from server.models import Host, Vulnerability
 
+# System prompt shared by both backends
+_SYSTEM_PROMPT = (
+    "You are a cybersecurity analyst. "
+    "Respond with a single JSON object and nothing else. "
+    "Keys: exploitable_in_context (boolean or null), "
+    "confidence (\"high\"|\"medium\"|\"low\"), "
+    "summary (string, max 2 sentences), "
+    "prerequisites_met (boolean or null)."
+)
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Backend protocol + implementations
+# ──────────────────────────────────────────────────────────────────────────────
+
+class _Backend(abc.ABC):
+    """Minimal interface that each backend must implement."""
+
+    @abc.abstractmethod
+    async def complete(self, system: str, user: str) -> str:
+        """Send a prompt and return the raw text response."""
+
+    async def close(self) -> None:
+        """Release resources if needed."""
+
+
+class _OllamaBackend(_Backend):
+    """
+    Calls the local Ollama REST API.
+
+    Endpoint: POST {ollama_url}/api/chat
+    Uses format="json" to force structured JSON output.
+    No extra pip dependency — httpx is already required by the platform.
+    """
+
+    def __init__(self, url: str, model: str) -> None:
+        self._url = url.rstrip("/") + "/api/chat"
+        self._model = model
+        # Lazy import — httpx is always available
+        import httpx
+        self._client = httpx.AsyncClient(timeout=60)
+
+    async def complete(self, system: str, user: str) -> str:
+        payload = {
+            "model": self._model,
+            "stream": False,
+            "format": "json",  # Ollama guarantees valid JSON output
+            "messages": [
+                {"role": "system", "content": system},
+                {"role": "user",   "content": user},
+            ],
+        }
+        response = await self._client.post(self._url, json=payload)
+        response.raise_for_status()
+        return response.json()["message"]["content"]
+
+    async def close(self) -> None:
+        await self._client.aclose()
+
+
+class _AnthropicBackend(_Backend):
+    """
+    Calls the Anthropic cloud API via the official SDK.
+
+    Requires: pip install 'discoverykastle-server[ai]'
+    """
+
+    def __init__(self, api_key: str, model: str) -> None:
+        import anthropic  # type: ignore[import-untyped]
+        self._client = anthropic.AsyncAnthropic(api_key=api_key)
+        self._model = model
+
+    async def complete(self, system: str, user: str) -> str:
+        response = await self._client.messages.create(
+            model=self._model,
+            max_tokens=256,
+            system=system,
+            messages=[{"role": "user", "content": user}],
+        )
+        return response.content[0].text
+
+    async def close(self) -> None:
+        await self._client.close()
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# Module
+# ──────────────────────────────────────────────────────────────────────────────
 
 class Module(BaseModule):
     manifest = ModuleManifest(
         name="builtin-ai",
-        version="1.0.0",
+        version="1.1.0",
         description=(
             "AI-powered contextual CVE triage. "
             "Uses an LLM only to assess whether a vulnerability's exploitation "
             "prerequisites are actually met on the affected host — something "
-            "deterministic rules cannot do."
+            "deterministic rules cannot do. "
+            "Supports Ollama (local) and Anthropic (cloud)."
         ),
         author="Discoverykastle",
         capabilities=[ModuleCapability.ENRICHMENT],
         config_schema={
-            "ai_enabled": {"type": "boolean", "default": False},
-            "anthropic_api_key": {"type": "string", "description": "Anthropic API key"},
+            "ai_enabled":         {"type": "boolean", "default": False},
+            "ai_backend":         {"type": "string",  "default": "auto",
+                                   "enum": ["auto", "ollama", "anthropic"]},
+            "ollama_url":         {"type": "string",  "default": "http://localhost:11434"},
+            "ollama_model":       {"type": "string",  "default": "llama3.2"},
+            "anthropic_api_key":  {"type": "string"},
+            "anthropic_model":    {"type": "string",  "default": "claude-haiku-4-5-20251001"},
         },
         builtin=True,
     )
 
-    # In-memory cache: {cache_key: assessment_text}
-    # key = sha256(cve_id + "|" + sorted service profile)
-    # Same CVE on hosts with identical service profiles → reuse assessment.
-    _cache: dict[str, str] = {}
+    # In-memory result cache: sha256(cve_id + service_profile) → assessment dict
+    # Same CVE on hosts with identical service profiles reuses the result.
+    _cache: dict[str, dict[str, Any]] = {}
 
-    # Semaphore: at most 3 concurrent AI calls to avoid hammering the API.
+    # At most 3 concurrent LLM calls regardless of backend.
     _sem: asyncio.Semaphore = asyncio.Semaphore(3)
 
     def __init__(self, config: dict[str, Any] | None = None) -> None:
         super().__init__(config)
         from server.config import settings
 
-        self._enabled: bool = self.config.get("ai_enabled", settings.ai_enabled)
-        self._api_key: str | None = (
+        self._enabled: bool  = self.config.get("ai_enabled",  settings.ai_enabled)
+        self._backend_name: str = (
+            self.config.get("ai_backend", settings.ai_backend) or "auto"
+        ).lower()
+        self._ollama_url: str   = self.config.get("ollama_url",   settings.ollama_url)
+        self._ollama_model: str = self.config.get("ollama_model", settings.ollama_model)
+        self._anthropic_key: str | None = (
             self.config.get("anthropic_api_key") or settings.anthropic_api_key
         )
-        self._client: Any = None  # anthropic.AsyncAnthropic — lazy init
+        self._anthropic_model: str = self.config.get(
+            "anthropic_model", settings.anthropic_model
+        )
+        self._backend: _Backend | None = None
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
 
     async def setup(self) -> None:
         if not self._enabled:
@@ -94,39 +212,111 @@ class Module(BaseModule):
             )
             return
 
-        if not self._api_key:
-            self.logger.warning(
-                "AI enrichment enabled but DKASTLE_ANTHROPIC_API_KEY is not set — disabling.",
-                extra={"event": "setup", "action": "ai_no_key"},
-            )
-            self._enabled = False
-            return
-
-        try:
-            import anthropic  # type: ignore[import-untyped]
-
-            self._client = anthropic.AsyncAnthropic(api_key=self._api_key)
-            self.logger.info(
-                "AI enrichment active (contextual CVE triage only).",
-                extra={"event": "setup", "action": "ai_ready"},
-            )
-        except ImportError:
-            self.logger.warning(
-                "DKASTLE_AI_ENABLED=true but 'anthropic' is not installed. "
-                "Run: pip install 'discoverykastle-server[ai]'",
-                extra={"event": "setup", "action": "ai_missing_dep"},
-            )
+        self._backend = await self._init_backend()
+        if self._backend is None:
             self._enabled = False
 
     async def teardown(self) -> None:
-        if self._client is not None:
+        if self._backend is not None:
             try:
-                await self._client.close()
+                await self._backend.close()
             except Exception:
                 pass
 
+    async def _init_backend(self) -> _Backend | None:
+        """
+        Initialise and validate the configured backend.
+        Returns None (with a warning) if the backend cannot be set up.
+        """
+        want = self._backend_name
+
+        if want in ("auto", "ollama"):
+            backend = await self._try_ollama()
+            if backend is not None:
+                return backend
+            if want == "ollama":
+                # Explicitly requested but unavailable — don't fall through
+                self.logger.warning(
+                    "AI backend 'ollama' requested but Ollama is not reachable at %s. "
+                    "Is Ollama running? Start it with: ollama serve",
+                    self._ollama_url,
+                    extra={"event": "setup", "action": "ai_ollama_unreachable",
+                           "ollama_url": self._ollama_url},
+                )
+                return None
+            # auto: fall through to Anthropic
+            self.logger.info(
+                "Ollama not reachable — falling back to Anthropic backend.",
+                extra={"event": "setup", "action": "ai_fallback_anthropic"},
+            )
+
+        if want in ("auto", "anthropic"):
+            return self._try_anthropic()
+
+        self.logger.warning(
+            "Unknown DKASTLE_AI_BACKEND value '%s' — expected auto|ollama|anthropic.",
+            want,
+            extra={"event": "setup", "action": "ai_bad_backend"},
+        )
+        return None
+
+    async def _try_ollama(self) -> _Backend | None:
+        """
+        Probe Ollama with a lightweight GET /api/tags.
+        Returns a ready backend, or None if Ollama is not available.
+        """
+        import httpx
+
+        try:
+            async with httpx.AsyncClient(timeout=3) as probe:
+                r = await probe.get(self._ollama_url.rstrip("/") + "/api/tags")
+                r.raise_for_status()
+        except Exception:
+            return None
+
+        backend = _OllamaBackend(self._ollama_url, self._ollama_model)
+        self.logger.info(
+            "AI enrichment active — backend: Ollama, model: %s, url: %s",
+            self._ollama_model, self._ollama_url,
+            extra={
+                "event": "setup", "action": "ai_ready",
+                "ai_backend": "ollama",
+                "ollama_model": self._ollama_model,
+                "ollama_url": self._ollama_url,
+            },
+        )
+        return backend
+
+    def _try_anthropic(self) -> _Backend | None:
+        """Initialise the Anthropic SDK backend."""
+        if not self._anthropic_key:
+            self.logger.warning(
+                "AI backend 'anthropic' selected but DKASTLE_ANTHROPIC_API_KEY is not set.",
+                extra={"event": "setup", "action": "ai_no_key"},
+            )
+            return None
+        try:
+            backend = _AnthropicBackend(self._anthropic_key, self._anthropic_model)
+            self.logger.info(
+                "AI enrichment active — backend: Anthropic, model: %s",
+                self._anthropic_model,
+                extra={
+                    "event": "setup", "action": "ai_ready",
+                    "ai_backend": "anthropic",
+                    "anthropic_model": self._anthropic_model,
+                },
+            )
+            return backend
+        except ImportError:
+            self.logger.warning(
+                "AI backend 'anthropic' selected but the SDK is not installed. "
+                "Run: pip install 'discoverykastle-server[ai]'",
+                extra={"event": "setup", "action": "ai_missing_dep"},
+            )
+            return None
+
     # ------------------------------------------------------------------
-    # Event hook — called after every new vulnerability is linked to a host
+    # Event hook
     # ------------------------------------------------------------------
 
     async def on_vulnerability_found(
@@ -138,10 +328,10 @@ class Module(BaseModule):
         This is the ONLY place in the codebase where AI is used.
         The assessment supplements (never replaces) the CVSS-based alert.
         """
-        if not self._enabled or self._client is None:
+        if not self._enabled or self._backend is None:
             return
 
-        # Only worth asking about medium+ CVSS — low scores don't justify the API call
+        # Only worth calling the LLM for medium+ severity
         if (vuln.cvss_score or 0.0) < 4.0:
             return
 
@@ -165,7 +355,6 @@ class Module(BaseModule):
             )
             return
 
-        # Merge assessment into the vulnerability's details dict
         details = dict(vuln.details or {})
         details["ai_context"] = assessment
         vuln.details = details
@@ -194,16 +383,6 @@ class Module(BaseModule):
     async def _assess_vulnerability(
         self, vuln: "Vulnerability", host: "Host"
     ) -> dict[str, Any]:
-        """
-        Ask Claude Haiku whether this CVE is exploitable in context.
-
-        Returns a dict with:
-          exploitable_in_context: bool | null  (null = cannot determine)
-          confidence: "high" | "medium" | "low"
-          summary: str  (1-2 sentences for the operator)
-          prerequisites_met: bool | null  (are the CVE's requirements satisfied?)
-        """
-        # Build a service profile for cache key and prompt
         service_lines = _describe_services(host)
         cache_key = _cache_key(vuln.cve_id or "", service_lines)
 
@@ -213,25 +392,11 @@ class Module(BaseModule):
         prompt = _build_prompt(vuln, host, service_lines)
 
         async with self._sem:
-            response = await self._client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=256,
-                system=(
-                    "You are a cybersecurity analyst. "
-                    "Respond with a single JSON object and nothing else. "
-                    "Keys: exploitable_in_context (boolean or null), "
-                    "confidence (\"high\"|\"medium\"|\"low\"), "
-                    "summary (string, max 2 sentences), "
-                    "prerequisites_met (boolean or null)."
-                ),
-                messages=[{"role": "user", "content": prompt}],
-            )
+            raw = await self._backend.complete(_SYSTEM_PROMPT, prompt)  # type: ignore[union-attr]
 
-        raw = response.content[0].text.strip()
-
-        import json
+        raw = raw.strip()
         try:
-            # Strip markdown code fences if the model wraps in ```json ... ```
+            # Strip markdown code fences if the model wraps output in ```json ... ```
             if raw.startswith("```"):
                 raw = raw.split("```")[1]
                 if raw.startswith("json"):
@@ -249,23 +414,16 @@ class Module(BaseModule):
         return assessment
 
 
-# ------------------------------------------------------------------
-# Helpers (module-level, no state)
-# ------------------------------------------------------------------
+# ──────────────────────────────────────────────────────────────────────────────
+# Pure helpers (no state, no imports from models at module load time)
+# ──────────────────────────────────────────────────────────────────────────────
 
 def _describe_services(host: "Host") -> list[str]:
-    """
-    Build a compact service description list from the host's known services.
-    Falls back to a minimal description if services aren't loaded yet.
-    """
     lines: list[str] = []
-    services = getattr(host, "services", None) or []
-    for svc in services:
-        port = getattr(svc, "port", None)
-        proto = getattr(svc, "protocol", "tcp")
-        name = getattr(svc, "service_name", "") or ""
-        version = getattr(svc, "version", "") or ""
-        parts = [f"{port}/{proto}"]
+    for svc in (getattr(host, "services", None) or []):
+        parts = [f"{getattr(svc, 'port', '?')}/{getattr(svc, 'protocol', 'tcp')}"]
+        name    = getattr(svc, "service_name", "") or ""
+        version = getattr(svc, "version", "")      or ""
         if name:
             parts.append(name)
         if version:
@@ -279,20 +437,14 @@ def _cache_key(cve_id: str, service_lines: list[str]) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def _build_prompt(
-    vuln: "Vulnerability",
-    host: "Host",
-    service_lines: list[str],
-) -> str:
-    host_label = host.fqdn or (host.ip_addresses[0] if host.ip_addresses else "unknown")
-    os_info = f"{host.os or 'unknown'} {host.os_version or ''}".strip()
-    services_text = (
+def _build_prompt(vuln: "Vulnerability", host: "Host", service_lines: list[str]) -> str:
+    host_label   = host.fqdn or (host.ip_addresses[0] if host.ip_addresses else "unknown")
+    os_info      = f"{host.os or 'unknown'} {host.os_version or ''}".strip()
+    services_txt = (
         "\n".join(f"  - {s}" for s in service_lines)
-        if service_lines
-        else "  (no exposed services detected yet)"
+        if service_lines else "  (no exposed services detected yet)"
     )
-
-    description = (vuln.description or "No description available.")[:800]
+    description  = (vuln.description or "No description available.")[:800]
 
     return (
         f"CVE: {vuln.cve_id}\n"
@@ -301,7 +453,7 @@ def _build_prompt(
         f"\n"
         f"Affected host: {host_label}\n"
         f"Operating system: {os_info}\n"
-        f"Exposed services (port/proto name version):\n{services_text}\n"
+        f"Exposed services (port/proto name version):\n{services_txt}\n"
         f"\n"
         f"Question: Based on the CVE description's exploitation prerequisites, "
         f"is this vulnerability actually exploitable on this specific host given "

@@ -56,11 +56,26 @@ class Settings(BaseSettings):
     # Current use: contextual CVE exploitability triage — assessing whether
     # a vulnerability's prerequisites are actually met on a specific host,
     # which requires reading and understanding the CVE description.
-    #
-    # Install extra dep first: pip install 'discoverykastle-server[ai]'
     # ------------------------------------------------------------------ #
     ai_enabled: bool = False
+
+    # Backend selection: "auto" | "ollama" | "anthropic"
+    #   auto      → prefer Ollama if ollama_url is set, otherwise Anthropic
+    #   ollama    → force local Ollama (no API key needed)
+    #   anthropic → force Anthropic cloud (requires anthropic_api_key +
+    #               pip install 'discoverykastle-server[ai]')
+    ai_backend: str = "auto"
+
+    # Ollama — local inference, no API key, no extra pip dependency.
+    # Install Ollama: https://ollama.com/download
+    # Then pull a model: ollama pull llama3.2
+    ollama_url: str = "http://localhost:11434"
+    ollama_model: str = "llama3.2"
+
+    # Anthropic cloud — requires SDK:
+    # pip install 'discoverykastle-server[ai]'
     anthropic_api_key: Optional[str] = None
+    anthropic_model: str = "claude-haiku-4-5-20251001"
 
     class Config:
         env_prefix = "DKASTLE_"
