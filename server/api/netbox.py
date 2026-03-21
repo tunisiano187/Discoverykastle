@@ -58,7 +58,11 @@ async def trigger_import(db: AsyncSession = Depends(get_db)) -> dict:
     """
     module = _get_module()
 
-    result = await module.import_from_netbox(db)  # type: ignore[attr-defined]
+    try:
+        result = await module.import_from_netbox(db)  # type: ignore[attr-defined]
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Import failed: {exc}") from exc
+
     if "error" in result:
         raise HTTPException(status_code=503, detail=result.get("message", "Import failed"))
 
@@ -79,7 +83,11 @@ async def trigger_full_sync(db: AsyncSession = Depends(get_db)) -> dict:
     """
     module = _get_module()
 
-    result = await module.full_sync(db)  # type: ignore[attr-defined]
+    try:
+        result = await module.full_sync(db)  # type: ignore[attr-defined]
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail=f"Sync failed: {exc}") from exc
+
     if "error" in result:
         raise HTTPException(status_code=503, detail=result.get("message", "Sync failed"))
 

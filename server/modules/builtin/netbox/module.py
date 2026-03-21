@@ -99,9 +99,17 @@ class Module(BaseModule):
         self.logger.info("NetBox configured at %s — running initial import...", self._url)
         from server.database import AsyncSessionLocal
 
-        async with AsyncSessionLocal() as db:
-            counts = await self.import_from_netbox(db)
-            await db.commit()
+        try:
+            async with AsyncSessionLocal() as db:
+                counts = await self.import_from_netbox(db)
+                await db.commit()
+        except Exception:
+            # Import failure must never prevent the application from starting.
+            self.logger.exception(
+                "NetBox initial import failed — the application will continue without NetBox data. "
+                "Fix the configuration and re-run via POST /api/v1/netbox/import."
+            )
+            return
 
         self.last_import_at = datetime.utcnow()
         self.last_import_counts = counts
@@ -143,10 +151,25 @@ class Module(BaseModule):
             "interfaces_created": 0,
         }
 
-        counts["prefixes_created"], counts["prefixes_updated"] = await self._import_prefixes(db)
-        counts["hosts_created"], counts["hosts_updated"] = await self._import_ip_addresses(db)
-        counts["devices_created"], counts["devices_updated"] = await self._import_devices(db)
-        counts["interfaces_created"] = await self._import_interfaces(db)
+        # Each step is isolated: a failure in one step is recorded but does NOT
+        # prevent the other steps from running.
+        steps = [
+            ("prefixes", self._import_prefixes, "prefixes_created", "prefixes_updated"),
+            ("ip_addresses", self._import_ip_addresses, "hosts_created", "hosts_updated"),
+            ("devices", self._import_devices, "devices_created", "devices_updated"),
+        ]
+        for label, fn, key_created, key_updated in steps:
+            try:
+                counts[key_created], counts[key_updated] = await fn(db)
+            except Exception:
+                self.logger.exception("NetBox import step '%s' failed — skipping", label)
+                counts[f"{label}_error"] = 1
+
+        try:
+            counts["interfaces_created"] = await self._import_interfaces(db)
+        except Exception:
+            self.logger.exception("NetBox import step 'interfaces' failed — skipping")
+            counts["interfaces_error"] = 1
 
         return counts
 
@@ -163,28 +186,40 @@ class Module(BaseModule):
         for row in (await db.execute(select(Network))).scalars():
             existing_cidrs[row.cidr] = row
 
+        skipped = 0
         pending = 0
         async for item in self._paginate("/api/ipam/prefixes/"):
-            cidr = item.get("prefix")
-            if not cidr:
-                continue
+            try:
+                cidr = item.get("prefix")
+                if not cidr:
+                    continue
 
-            desc = item.get("description") or (item.get("vrf") or {}).get("name") or None
+                desc = item.get("description") or (item.get("vrf") or {}).get("name") or None
 
-            if cidr in existing_cidrs:
-                net = existing_cidrs[cidr]
-                if desc and not net.description:
-                    net.description = desc
-                    updated += 1
-            else:
-                net = Network(cidr=cidr, description=desc, scan_authorized=False)
-                db.add(net)
-                existing_cidrs[cidr] = net  # track immediately — prevents within-run dupes
-                created += 1
-                pending += 1
-                if pending >= BATCH:
-                    await db.flush()
-                    pending = 0
+                if cidr in existing_cidrs:
+                    net = existing_cidrs[cidr]
+                    if desc and not net.description:
+                        net.description = desc
+                        updated += 1
+                else:
+                    net = Network(cidr=cidr, description=desc, scan_authorized=False)
+                    db.add(net)
+                    existing_cidrs[cidr] = net  # track immediately — prevents within-run dupes
+                    created += 1
+                    pending += 1
+                    if pending >= BATCH:
+                        await db.flush()
+                        pending = 0
+            except Exception:
+                skipped += 1
+                self.logger.warning(
+                    "Skipping malformed prefix item (id=%s): %s",
+                    item.get("id", "?"), item.get("prefix", "<no prefix>"),
+                    exc_info=True,
+                )
+
+        if skipped:
+            self.logger.warning("_import_prefixes: skipped %d item(s) due to errors", skipped)
 
         await db.flush()
         return created, updated
@@ -203,37 +238,49 @@ class Module(BaseModule):
             for ip in row.ip_addresses:
                 existing_ips[ip] = row
 
+        skipped = 0
         pending = 0
         async for item in self._paginate("/api/ipam/ip-addresses/"):
-            raw = item.get("address", "")
-            ip = raw.split("/")[0] if "/" in raw else raw
-            if not ip:
-                continue
+            try:
+                raw = item.get("address", "")
+                ip = raw.split("/")[0] if "/" in raw else raw
+                if not ip:
+                    continue
 
-            dns_name = item.get("dns_name") or None
-            cf = item.get("custom_fields") or {}
-            os_hint = cf.get("os") or cf.get("operating_system") or None
+                dns_name = item.get("dns_name") or None
+                cf = item.get("custom_fields") or {}
+                os_hint = cf.get("os") or cf.get("operating_system") or None
 
-            if ip in existing_ips:
-                host = existing_ips[ip]
-                changed = False
-                if dns_name and not host.fqdn:
-                    host.fqdn = dns_name
-                    changed = True
-                if os_hint and not host.os:
-                    host.os = os_hint
-                    changed = True
-                if changed:
-                    updated += 1
-            else:
-                host = Host(ip_addresses=[ip], fqdn=dns_name, os=os_hint)
-                db.add(host)
-                existing_ips[ip] = host  # prevent within-run dupes
-                created += 1
-                pending += 1
-                if pending >= BATCH:
-                    await db.flush()
-                    pending = 0
+                if ip in existing_ips:
+                    host = existing_ips[ip]
+                    changed = False
+                    if dns_name and not host.fqdn:
+                        host.fqdn = dns_name
+                        changed = True
+                    if os_hint and not host.os:
+                        host.os = os_hint
+                        changed = True
+                    if changed:
+                        updated += 1
+                else:
+                    host = Host(ip_addresses=[ip], fqdn=dns_name, os=os_hint)
+                    db.add(host)
+                    existing_ips[ip] = host  # prevent within-run dupes
+                    created += 1
+                    pending += 1
+                    if pending >= BATCH:
+                        await db.flush()
+                        pending = 0
+            except Exception:
+                skipped += 1
+                self.logger.warning(
+                    "Skipping malformed ip-address item (id=%s): %s",
+                    item.get("id", "?"), item.get("address", "<no address>"),
+                    exc_info=True,
+                )
+
+        if skipped:
+            self.logger.warning("_import_ip_addresses: skipped %d item(s) due to errors", skipped)
 
         await db.flush()
         return created, updated
@@ -254,68 +301,80 @@ class Module(BaseModule):
                 existing_by_hostname[row.hostname] = row
             existing_by_ip[row.ip_address] = row
 
+        skipped = 0
         pending = 0
         async for item in self._paginate("/api/dcim/devices/"):
-            hostname = item.get("name") or None
+            try:
+                hostname = item.get("name") or None
 
-            # Resolve primary IP — skip device if neither hostname nor IP is available
-            primary_ip_obj = item.get("primary_ip") or item.get("primary_ip4") or {}
-            raw_ip = primary_ip_obj.get("address", "")
-            ip = raw_ip.split("/")[0] if "/" in raw_ip else raw_ip or None
+                # Resolve primary IP — skip device if neither hostname nor IP is available
+                primary_ip_obj = item.get("primary_ip") or item.get("primary_ip4") or {}
+                raw_ip = primary_ip_obj.get("address", "")
+                ip = raw_ip.split("/")[0] if "/" in raw_ip else raw_ip or None
 
-            if not hostname and not ip:
-                continue
+                if not hostname and not ip:
+                    continue
 
-            device_role = (item.get("role") or item.get("device_role") or {}).get("name", "")
-            device_type_obj = item.get("device_type") or {}
-            vendor = (device_type_obj.get("manufacturer") or {}).get("name") or None
-            model = device_type_obj.get("model") or None
-            platform = (item.get("platform") or {}).get("name") or None
+                device_role = (item.get("role") or item.get("device_role") or {}).get("name", "")
+                device_type_obj = item.get("device_type") or {}
+                vendor = (device_type_obj.get("manufacturer") or {}).get("name") or None
+                model = device_type_obj.get("model") or None
+                platform = (item.get("platform") or {}).get("name") or None
 
-            # Match by hostname first, then by IP to avoid duplicates
-            existing = (
-                existing_by_hostname.get(hostname) if hostname else None
-            ) or (
-                existing_by_ip.get(ip) if ip else None
-            )
-
-            if existing:
-                changed = False
-                if ip and existing.ip_address != ip:
-                    existing.ip_address = ip
-                    changed = True
-                if platform and not existing.firmware_version:
-                    existing.firmware_version = platform
-                    changed = True
-                if vendor and not existing.vendor:
-                    existing.vendor = vendor
-                    changed = True
-                if changed:
-                    updated += 1
-                # Keep lookup maps consistent
-                if hostname:
-                    existing_by_hostname[hostname] = existing
-                if ip:
-                    existing_by_ip[ip] = existing
-            else:
-                dev = NetworkDevice(
-                    ip_address=ip or "",
-                    hostname=hostname,
-                    vendor=vendor,
-                    model=model,
-                    firmware_version=platform,
-                    device_type=_map_device_role(device_role),
+                # Match by hostname first, then by IP to avoid duplicates
+                existing = (
+                    existing_by_hostname.get(hostname) if hostname else None
+                ) or (
+                    existing_by_ip.get(ip) if ip else None
                 )
-                db.add(dev)
-                if hostname:
-                    existing_by_hostname[hostname] = dev
-                if ip:
-                    existing_by_ip[ip] = dev
-                created += 1
-                pending += 1
-                if pending >= BATCH:
-                    await db.flush()
-                    pending = 0
+
+                if existing:
+                    changed = False
+                    if ip and existing.ip_address != ip:
+                        existing.ip_address = ip
+                        changed = True
+                    if platform and not existing.firmware_version:
+                        existing.firmware_version = platform
+                        changed = True
+                    if vendor and not existing.vendor:
+                        existing.vendor = vendor
+                        changed = True
+                    if changed:
+                        updated += 1
+                    # Keep lookup maps consistent
+                    if hostname:
+                        existing_by_hostname[hostname] = existing
+                    if ip:
+                        existing_by_ip[ip] = existing
+                else:
+                    dev = NetworkDevice(
+                        ip_address=ip or "",
+                        hostname=hostname,
+                        vendor=vendor,
+                        model=model,
+                        firmware_version=platform,
+                        device_type=_map_device_role(device_role),
+                    )
+                    db.add(dev)
+                    if hostname:
+                        existing_by_hostname[hostname] = dev
+                    if ip:
+                        existing_by_ip[ip] = dev
+                    created += 1
+                    pending += 1
+                    if pending >= BATCH:
+                        await db.flush()
+                        pending = 0
+            except Exception:
+                skipped += 1
+                self.logger.warning(
+                    "Skipping malformed device item (id=%s): %s",
+                    item.get("id", "?"), item.get("name", "<no name>"),
+                    exc_info=True,
+                )
+
+        if skipped:
+            self.logger.warning("_import_devices: skipped %d item(s) due to errors", skipped)
 
         await db.flush()
         return created, updated
@@ -351,35 +410,47 @@ class Module(BaseModule):
         for row in (await db.execute(select(NetworkInterface))).scalars():
             existing_ifaces.add((row.host_id, row.name))
 
+        skipped = 0
         pending = 0
         async for item in self._paginate("/api/dcim/interfaces/"):
-            device_obj = item.get("device") or {}
-            hostname = device_obj.get("name")
-            if not hostname or hostname not in devices_with_host:
-                continue
+            try:
+                device_obj = item.get("device") or {}
+                hostname = device_obj.get("name")
+                if not hostname or hostname not in devices_with_host:
+                    continue
 
-            device = devices_with_host[hostname]
-            iface_name = item.get("name") or ""
-            if not iface_name:
-                continue
+                device = devices_with_host[hostname]
+                iface_name = item.get("name") or ""
+                if not iface_name:
+                    continue
 
-            key = (device.host_id, iface_name)
-            if key in existing_ifaces:
-                continue
+                key = (device.host_id, iface_name)
+                if key in existing_ifaces:
+                    continue
 
-            db.add(NetworkInterface(
-                host_id=device.host_id,
-                name=iface_name,
-                mac_address=item.get("mac_address") or None,
-                is_up=item.get("enabled", True),
-                interface_type=(item.get("type") or {}).get("value") or None,
-            ))
-            existing_ifaces.add(key)  # prevent within-run dupes
-            created += 1
-            pending += 1
-            if pending >= BATCH:
-                await db.flush()
-                pending = 0
+                db.add(NetworkInterface(
+                    host_id=device.host_id,
+                    name=iface_name,
+                    mac_address=item.get("mac_address") or None,
+                    is_up=item.get("enabled", True),
+                    interface_type=(item.get("type") or {}).get("value") or None,
+                ))
+                existing_ifaces.add(key)  # prevent within-run dupes
+                created += 1
+                pending += 1
+                if pending >= BATCH:
+                    await db.flush()
+                    pending = 0
+            except Exception:
+                skipped += 1
+                self.logger.warning(
+                    "Skipping malformed interface item (id=%s): %s",
+                    item.get("id", "?"), item.get("name", "<no name>"),
+                    exc_info=True,
+                )
+
+        if skipped:
+            self.logger.warning("_import_interfaces: skipped %d item(s) due to errors", skipped)
 
         await db.flush()
         return created
@@ -391,18 +462,27 @@ class Module(BaseModule):
     async def on_host_discovered(self, host: "Host", db: "AsyncSession") -> None:
         if not self._ready:
             return
-        for ip in host.ip_addresses:
-            await self._upsert_ip_address(ip, host.fqdn)
+        try:
+            for ip in host.ip_addresses:
+                await self._upsert_ip_address(ip, host.fqdn)
+        except Exception:
+            self.logger.exception("on_host_discovered: failed to push host to NetBox (fqdn=%s)", host.fqdn)
 
     async def on_network_discovered(self, network: "Network", db: "AsyncSession") -> None:
         if not self._ready:
             return
-        await self._upsert_prefix(network.cidr, network.description)
+        try:
+            await self._upsert_prefix(network.cidr, network.description)
+        except Exception:
+            self.logger.exception("on_network_discovered: failed to push prefix %s to NetBox", network.cidr)
 
     async def on_device_found(self, device: "NetworkDevice", db: "AsyncSession") -> None:
         if not self._ready:
             return
-        await self._upsert_device(device)
+        try:
+            await self._upsert_device(device)
+        except Exception:
+            self.logger.exception("on_device_found: failed to push device %s to NetBox", device.hostname)
 
     # ------------------------------------------------------------------
     # Push: Discoverykastle → NetBox (full sync)
