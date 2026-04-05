@@ -10,22 +10,20 @@ Last updated: 2026-04-05
   IP guard, DNS enrichment, WebPush notifications, AI enrichment, setup wizard, structured logging,
   Docker Compose, install scripts — merged 2026-03-21
 
-## In progress (this run)
-- feat(server): agent registration API, embedded CA, operator JWT auth
-  - Branch: `feat/agent-registration-ca-auth`
-  - Implements `POST /api/v1/agents/register`, `POST /api/v1/agents/{id}/heartbeat`,
-    `GET|DELETE /api/v1/agents`, `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`
-  - Embedded x.509 CA (cryptography lib) for mTLS agent certs
+## Currently open PR
+- Branch `feat/agent-registration-ca-auth` pushed — PR to be created at:
+  https://github.com/tunisiano187/Discoverykastle/pull/new/feat/agent-registration-ca-auth
+  - Status: waiting for merge
+  - Implements: agent registration, embedded CA, JWT operator auth, native OS agent,
+    auto-update (server version endpoint + agent self-update on heartbeat)
 
 ## Todo (prioritized — pick from the top)
 
-1. [CRITICAL] Agent registration API + embedded CA + JWT operator auth — **IN PROGRESS THIS RUN**
-   - `POST /api/v1/agents/register` (enrollment token → mTLS cert)
-   - `POST /api/v1/agents/{id}/heartbeat`
-   - `GET /api/v1/agents`, `GET /api/v1/agents/{id}`, `DELETE /api/v1/agents/{id}`
-   - `POST /api/v1/auth/login`, `POST /api/v1/auth/refresh`
-   - Embedded CA service using `cryptography` library
-   - Reason: agents cannot enroll, and operators cannot authenticate — nothing works end-to-end
+1. [CRITICAL] Full data ingestion API — agents push host/service/vuln/interface/scan data
+   - `POST /api/v1/data/hosts`, `/services`, `/packages`, `/vulnerabilities`
+   - `POST /api/v1/data/interfaces`, `/scan-results`, `/device-configs`, `/topology-edges`
+   - Currently only `/api/v1/data/puppet` exists
+   - Reason: agents can now enroll (PR in review) but can't submit discovery data
 
 2. [CRITICAL] Full data ingestion API — needed for agents to push host/service/vuln/interface/scan data
    - `POST /api/v1/data/hosts`, `/services`, `/packages`, `/vulnerabilities`
@@ -66,6 +64,11 @@ Last updated: 2026-04-05
    - Enables safe schema evolution in production
 
 ## Done
+- Agent registration API (`POST /api/v1/agents/register`, heartbeat, list, delete, task queue) — PR in review
+- Embedded CA (ECDSA P-256, 90-day agent certs, persistent root CA) — PR in review
+- Operator JWT auth (`POST /api/v1/auth/login`, `/refresh`, `GET /auth/me`) — PR in review
+- Auto-update: server version endpoint (`GET /api/v1/version`), agent self-update on heartbeat signal — PR in review
+- Native OS agent (Ubuntu/Debian systemd + Windows Service, enrollment, heartbeat, puppet collector) — PR in review
 - Server foundation (FastAPI, SQLAlchemy/asyncpg, Redis, structured logging)
 - Database models: Host, Service, Package, Vulnerability, Network, NetworkInterface,
   TopologyEdge, ScanResult, NetworkDevice, Agent, AuditLog, AuthorizationRequest, Alert
