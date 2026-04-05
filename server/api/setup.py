@@ -70,6 +70,7 @@ def _write_env(values: dict[str, str]) -> None:
             "DKASTLE_ADMIN_PASSWORD",
             "DKASTLE_SECRET_KEY",
             "DKASTLE_VAULT_KEY",
+            "DKASTLE_ENROLL_TOKEN",
             "DKASTLE_AUTHORIZED_CIDRS",
         ]),
         ("# ---- Server -------------------------------------------", [
@@ -186,6 +187,8 @@ async def setup_save(request: Request) -> HTMLResponse:
         values["DKASTLE_SECRET_KEY"] = secrets.token_hex(32)
     if not values.get("DKASTLE_VAULT_KEY") or values["DKASTLE_VAULT_KEY"] == "changeme-base64-32-bytes":
         values["DKASTLE_VAULT_KEY"] = base64.b64encode(secrets.token_bytes(32)).decode()
+    if not values.get("DKASTLE_ENROLL_TOKEN"):
+        values["DKASTLE_ENROLL_TOKEN"] = secrets.token_hex(32)
 
     _write_env(values)
     _reload_settings()

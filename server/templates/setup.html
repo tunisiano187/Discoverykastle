@@ -195,6 +195,18 @@
         </div>
 
         <div class="field">
+          <label>Agent enrollment token <span class="required">*</span>
+            <span class="hint">Agents present this token when registering — keep secret</span>
+          </label>
+          <div class="row key-field">
+            <input name="dkastle_enroll_token" id="enroll_token" type="text" required
+              value="{{ v.get('DKASTLE_ENROLL_TOKEN', '') }}"
+              placeholder="Click Generate →" style="font-family:monospace;font-size:12px;">
+            <button type="button" class="gen-btn" onclick="generateKey('enroll_token','hex')">Generate</button>
+          </div>
+        </div>
+
+        <div class="field">
           <label>Authorized scan CIDRs
             <span class="hint">Comma-separated — NO scan will ever run outside these ranges</span>
           </label>
