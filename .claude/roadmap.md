@@ -19,7 +19,18 @@ Last updated: 2026-04-05
 
 ## Todo (prioritized — pick from the top)
 
-1. [HIGH] WebSocket task dispatch — server→agent task delivery
+1. [HIGH] issues templates to add models for
+   - [Bug] Bug reports
+   - [Features] New features
+   - ...
+
+1.2. [HIGH] add priority to look on the New issues or create GH Action to handle them
+   - On new Issue:
+     - ask me (if i'm not the creator) if it should be done
+     - if i say OK or check a box in your question (only me)
+       - categorize it, add it to your todo based on the prioritization 
+
+1.5. [HIGH] WebSocket task dispatch — server→agent task delivery
    - `WS /api/v1/ws/agent/{id}` — persistent agent connection for task receipt
    - `WS /api/v1/ws/dashboard` — real-time dashboard updates
    - Task state machine (queued → dispatched → running → completed/failed)
