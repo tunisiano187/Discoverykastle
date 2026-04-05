@@ -23,6 +23,7 @@ Last updated: 2026-04-05
    - [Bug] Bug reports
    - [Features] New features
    - ...
+1.1. [HIGH] Add documentation of the code as a Have to be done correctly in the nexts rules
 
 1.2. [HIGH] add priority to look on the New issues or create GH Action to handle them
    - On new Issue:
