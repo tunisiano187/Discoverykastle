@@ -168,25 +168,11 @@ class DKAgent:
             try:
                 async with self._build_client() as client:
                     resp = await client.post(
-                        f"/api/v1/agents/{cfg.agent_id}/heartbeat",
-                        json={"agent_version": _agent_version()},
+                        f"/api/v1/agents/{cfg.agent_id}/heartbeat"
                     )
                     resp.raise_for_status()
                     consecutive_failures = 0
-
-                    # Check if the server requires an agent update
-                    data = resp.json()
-                    if data.get("agent_update_required"):
-                        logger.warning(
-                            "Server requires agent update (target: %s). Updating…",
-                            data.get("agent_update_target"),
-                        )
-                        await self._self_update(data.get("agent_update_target"))
-                        return  # _self_update restarts the process; this is a safety exit
-
-                    logger.debug(
-                        "Heartbeat OK (server %s)", data.get("server_version", "?")
-                    )
+                    logger.debug("Heartbeat OK")
             except httpx.HTTPStatusError as exc:
                 consecutive_failures += 1
                 logger.warning(
@@ -201,17 +187,6 @@ class DKAgent:
                 )
 
             await asyncio.sleep(cfg.heartbeat_interval)
-
-    async def _self_update(self, update_target: str | None = None) -> None:
-        """Trigger an in-place pip upgrade and restart the agent process."""
-        try:
-            await asyncio.to_thread(
-                _run_self_update, update_target
-            )
-        except Exception:
-            logger.exception(
-                "Self-update failed — agent will continue running on the old version"
-            )
 
     # ------------------------------------------------------------------
     # Puppet collector
@@ -281,12 +256,3 @@ def _agent_version() -> str:
         return version("discoverykastle-agent")
     except Exception:
         return "dev"
-
-
-def _run_self_update(update_target: str | None) -> None:
-    """
-    Run in a thread via asyncio.to_thread.
-    Imports the updater lazily so it can be patched in tests.
-    """
-    from agent.updater import self_update
-    self_update(update_target)
