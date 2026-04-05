@@ -3,72 +3,63 @@
 Last updated: 2026-04-05
 
 ## Currently open PR
-- None
+- Branch `feat/data-ingestion-api` pushed — PR in progress
+  - Implements: full data ingestion API (hosts, services, packages, vulnerabilities,
+    interfaces, scan-results, device-configs, topology-edges)
+  - Status: waiting for review
 
 ## Recently merged
-- PR #1: initial project documentation, server foundation, agent collectors, Puppet/Ansible integration,
-  IP guard, DNS enrichment, WebPush notifications, AI enrichment, setup wizard, structured logging,
-  Docker Compose, install scripts — merged 2026-03-21
-
-## Currently open PR
-- Branch `feat/agent-registration-ca-auth` pushed — PR to be created at:
-  https://github.com/tunisiano187/Discoverykastle/pull/new/feat/agent-registration-ca-auth
-  - Status: waiting for merge
-  - Implements: agent registration, embedded CA, JWT operator auth, native OS agent,
-    auto-update (server version endpoint + agent self-update on heartbeat)
+- PR #4: feat/agent-registration-ca-auth — merged (agent registration, embedded CA,
+  JWT operator auth, native OS agent, auto-update) — merged 2026-04-05
+- PR #3: docs/initial — merged 2026-03-21
+- PR #2 / #1: initial project documentation, server foundation, agent collectors,
+  Puppet/Ansible integration, IP guard, DNS enrichment, WebPush notifications,
+  AI enrichment, setup wizard, structured logging, Docker Compose, install scripts
+  — merged 2026-03-21
 
 ## Todo (prioritized — pick from the top)
 
-1. [CRITICAL] Full data ingestion API — agents push host/service/vuln/interface/scan data
-   - `POST /api/v1/data/hosts`, `/services`, `/packages`, `/vulnerabilities`
-   - `POST /api/v1/data/interfaces`, `/scan-results`, `/device-configs`, `/topology-edges`
-   - Currently only `/api/v1/data/puppet` exists
-   - Reason: agents can now enroll (PR in review) but can't submit discovery data
-
-2. [CRITICAL] Full data ingestion API — needed for agents to push host/service/vuln/interface/scan data
-   - `POST /api/v1/data/hosts`, `/services`, `/packages`, `/vulnerabilities`
-   - `POST /api/v1/data/interfaces`, `/scan-results`, `/device-configs`, `/topology-edges`
-   - Currently only `/api/v1/data/puppet` exists
-
-3. [HIGH] WebSocket task dispatch — server→agent task delivery
+1. [HIGH] WebSocket task dispatch — server→agent task delivery
    - `WS /api/v1/ws/agent/{id}` — persistent agent connection for task receipt
    - `WS /api/v1/ws/dashboard` — real-time dashboard updates
    - Task state machine (queued → dispatched → running → completed/failed)
 
-4. [HIGH] Task engine — orchestrate what agents scan and when
+2. [HIGH] Task engine — orchestrate what agents scan and when
    - Task creation, queuing, retry with backoff, timeout handling
    - Authorization enforcement before dispatching sensitive tasks
    - Redis Streams integration for task queue
 
-5. [MEDIUM] React frontend (SPA dashboard)
+3. [MEDIUM] React frontend (SPA dashboard)
    - Currently no frontend exists (only static sw.js and webpush.js)
    - Topology view (Cytoscape.js), host inventory, vuln dashboard, agent dashboard
    - Auth login page
 
-6. [MEDIUM] Vulnerability API
+4. [MEDIUM] Vulnerability API
    - `GET /api/v1/vulns`, `/api/v1/vulns/{cve_id}`, `/api/v1/vulns/summary`
    - Severity filtering, affected-hosts-per-CVE view
 
-7. [MEDIUM] Documentation builder
+5. [MEDIUM] Documentation builder
    - Background service that generates Markdown docs from collected data
    - Network segments, individual hosts, network devices, executive summary
    - `GET /api/v1/docs/generate`, `/network/{id}`, `/device/{id}`, `/export`
 
-8. [LOW] Credential vault API
+6. [LOW] Credential vault API
    - Encrypted AES-256-GCM storage for device credentials
    - Ephemeral task-scoped credential delivery over WebSocket
    - `GET|POST|DELETE /api/v1/vault/credentials`
 
-9. [LOW] Alembic migrations
+7. [LOW] Alembic migrations
    - Replace `Base.metadata.create_all` with proper Alembic migrations
    - Enables safe schema evolution in production
 
 ## Done
-- Agent registration API (`POST /api/v1/agents/register`, heartbeat, list, delete, task queue) — PR in review
-- Embedded CA (ECDSA P-256, 90-day agent certs, persistent root CA) — PR in review
-- Operator JWT auth (`POST /api/v1/auth/login`, `/refresh`, `GET /auth/me`) — PR in review
-- Auto-update: server version endpoint (`GET /api/v1/version`), agent self-update on heartbeat signal — PR in review
-- Native OS agent (Ubuntu/Debian systemd + Windows Service, enrollment, heartbeat, puppet collector) — PR in review
+- Full data ingestion API (hosts, services, packages, vulnerabilities, interfaces,
+  scan-results, device-configs, topology-edges) — PR in review on `feat/data-ingestion-api`
+- Agent registration API (`POST /api/v1/agents/register`, heartbeat, list, delete, task queue) — PR #4
+- Embedded CA (ECDSA P-256, 90-day agent certs, persistent root CA) — PR #4
+- Operator JWT auth (`POST /api/v1/auth/login`, `/refresh`, `GET /auth/me`) — PR #4
+- Auto-update: server version endpoint (`GET /api/v1/version`), agent self-update on heartbeat signal — PR #4
+- Native OS agent (Ubuntu/Debian systemd + Windows Service, enrollment, heartbeat, puppet collector) — PR #4
 - Server foundation (FastAPI, SQLAlchemy/asyncpg, Redis, structured logging)
 - Database models: Host, Service, Package, Vulnerability, Network, NetworkInterface,
   TopologyEdge, ScanResult, NetworkDevice, Agent, AuditLog, AuthorizationRequest, Alert
@@ -84,6 +75,3 @@ Last updated: 2026-04-05
 - DNS enrichment (PTR/A lookups, AD domain detection)
 - IP public/private classification guard
 - Docker Compose + install.sh + cleanup.sh
-- Native OS agent (Ubuntu/Debian/Windows systemd/Windows Service)
-  - enrollment flow, heartbeat loop, Puppet collector scheduler
-  - install scripts (install.sh, uninstall.sh, install.ps1, uninstall.ps1)
