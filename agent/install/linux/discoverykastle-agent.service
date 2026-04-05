@@ -1,0 +1,37 @@
+[Unit]
+Description=Discoverykastle Agent
+Documentation=https://github.com/tunisiano187/Discoverykastle
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=dkagent
+Group=dkagent
+
+# Config file is read by the agent at startup
+Environment=DKASTLE_AGENT_CONFIG=/etc/discoverykastle/agent.conf
+
+ExecStart=/opt/discoverykastle/agent/venv/bin/python -m agent
+WorkingDirectory=/opt/discoverykastle/agent
+
+# Restart on any failure (covers network hiccups at boot)
+Restart=on-failure
+RestartSec=15s
+# Give up after 5 consecutive rapid failures (< RestartSec apart)
+StartLimitInterval=120s
+StartLimitBurst=5
+
+# Logging — output goes to journald; use `journalctl -u discoverykastle-agent`
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=dkagent
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/etc/discoverykastle /var/lib/discoverykastle /var/log/discoverykastle
+
+[Install]
+WantedBy=multi-user.target
