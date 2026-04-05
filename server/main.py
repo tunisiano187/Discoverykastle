@@ -18,7 +18,9 @@ from server.logging_config import setup_logging
 from server.database import init_db
 from server.modules.loader import load_all
 from server.modules.registry import registry
+from server.api.agents import router as agents_router
 from server.api.alerts import router as alerts_router
+from server.api.auth_api import router as auth_router
 from server.api.inventory import router as inventory_router
 from server.api.topology import router as topology_router
 from server.api.netbox import router as netbox_router
@@ -42,6 +44,11 @@ async def lifespan(app: FastAPI):
 
     await init_db()
     logger.info("Database initialized.", extra={"event": "db_init"})
+
+    from server.services.ca import ca
+    from server.config import settings
+    ca.init(settings.ca_dir)
+    logger.info("Certificate Authority initialized.", extra={"event": "ca_init"})
 
     load_all()
     await registry.setup_all()
@@ -92,6 +99,8 @@ if _static_dir.exists():
 
 # Routers — setup first so /setup is always reachable
 app.include_router(setup_router)
+app.include_router(auth_router)
+app.include_router(agents_router)
 app.include_router(webpush_router)
 app.include_router(alerts_router)
 app.include_router(inventory_router)

@@ -15,6 +15,18 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
 
+    # Operator credentials (set during first-run setup)
+    admin_username: str = "admin"
+    # Store as bcrypt hash or plain text (plain accepted for dev convenience)
+    admin_password: str = ""
+
+    # Agent enrollment token — agents present this when calling /register
+    # Generate a strong random value: python -c "import secrets; print(secrets.token_hex(32))"
+    enroll_token: str = ""
+
+    # Directory for CA root cert/key and issued agent certs
+    ca_dir: str = "data/ca"
+
     # Scan authorization
     authorized_cidrs: list[str] = []
     max_recursion_depth: int = 2
