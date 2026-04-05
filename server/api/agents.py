@@ -72,6 +72,14 @@ class AgentOut(BaseModel):
 
 class HeartbeatResponse(BaseModel):
     ok: bool
+    # Server version — lets the agent know what version of the server it is talking to
+    server_version: str
+    # True when the agent's reported version is below MINIMUM_AGENT_VERSION.
+    # The agent should call its self-update routine and reconnect.
+    agent_update_required: bool
+    # Pip install target to use when updating (e.g. "discoverykastle-agent==0.2.0").
+    # None means "upgrade to latest".
+    agent_update_target: str | None = None
 
 
 class TaskIn(BaseModel):
@@ -193,9 +201,15 @@ async def register_agent(
     )
 
 
+class HeartbeatRequest(BaseModel):
+    """Optional body sent by the agent with its current version."""
+    agent_version: str | None = None
+
+
 @router.post("/{agent_id}/heartbeat", response_model=HeartbeatResponse)
 async def heartbeat(
     agent_id: uuid.UUID,
+    body: HeartbeatRequest = HeartbeatRequest(),
     x_agent_fingerprint: Annotated[str | None, Header(alias="X-Agent-Fingerprint")] = None,
     x_agent_id: Annotated[str | None, Header(alias="X-Agent-ID")] = None,
     db: AsyncSession = Depends(get_db),
@@ -209,12 +223,23 @@ async def heartbeat(
     """
     agent = await _resolve_agent(db, agent_id, x_agent_fingerprint, x_agent_id)
 
+    # Update stored version if the agent reports it in the heartbeat body.
+    if body.agent_version and body.agent_version != agent.version:
+        agent.version = body.agent_version
+
     agent.last_heartbeat = datetime.utcnow()
     agent.status = "online"
     await db.commit()
 
-    logger.debug("Heartbeat from agent %s", agent_id)
-    return HeartbeatResponse(ok=True)
+    from server.services.version import agent_needs_update, current_version
+
+    needs_update = agent_needs_update(agent.version)
+    logger.debug("Heartbeat from agent %s (update_required=%s)", agent_id, needs_update)
+    return HeartbeatResponse(
+        ok=True,
+        server_version=current_version(),
+        agent_update_required=needs_update,
+    )
 
 
 @router.get("", response_model=list[AgentOut])

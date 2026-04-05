@@ -21,6 +21,7 @@ from server.modules.registry import registry
 from server.api.agents import router as agents_router
 from server.api.alerts import router as alerts_router
 from server.api.auth_api import router as auth_router
+from server.api.version import router as version_router
 from server.api.inventory import router as inventory_router
 from server.api.topology import router as topology_router
 from server.api.netbox import router as netbox_router
@@ -101,6 +102,7 @@ if _static_dir.exists():
 app.include_router(setup_router)
 app.include_router(auth_router)
 app.include_router(agents_router)
+app.include_router(version_router)
 app.include_router(webpush_router)
 app.include_router(alerts_router)
 app.include_router(inventory_router)
