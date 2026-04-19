@@ -32,6 +32,7 @@ from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 
 from server.database import AsyncSessionLocal
 from server.models.agent import Agent, AuditLog
+from server.services.task import mark_dispatched, mark_result
 
 logger = logging.getLogger(__name__)
 
@@ -244,6 +245,8 @@ async def _task_consumer(agent_id: str, ws: WebSocket) -> None:
                         await ws.send_json(task_payload)
                         # Remove from stream after confirmed delivery
                         await r.xdel(stream_key, msg_id)
+                        # Update task state machine: queued → dispatched
+                        await mark_dispatched(task_payload["task_id"])
                         logger.info(
                             "Task %s dispatched to agent %s via WS",
                             task_payload["task_id"],
@@ -369,12 +372,21 @@ async def agent_ws(
                     task_id = data.get("task_id", "unknown")
                     result_status = data.get("status", "unknown")
                     result_data = data.get("result", {})
+                    error_msg = data.get("error")
 
                     logger.info(
                         "Task result: agent=%s task_id=%s status=%s",
                         agent_id_str,
                         task_id,
                         result_status,
+                    )
+
+                    # Persist task state transition
+                    await mark_result(
+                        task_id,
+                        result_status,
+                        result=result_data,
+                        error=error_msg,
                     )
 
                     try:

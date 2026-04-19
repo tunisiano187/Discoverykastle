@@ -178,6 +178,7 @@ class TestAgentWSMessages:
             patch("server.api.ws._verify_agent", new=AsyncMock(return_value=agent)),
             patch("server.api.ws._mark_agent_status", new=AsyncMock()),
             patch("server.api.ws._task_consumer", new=AsyncMock(return_value=None)),
+            patch("server.api.ws.mark_result", new=AsyncMock()),
             patch("server.api.ws.AsyncSessionLocal") as mock_session,
             patch.object(manager, "broadcast", new=AsyncMock()) as mock_broadcast,
         ):

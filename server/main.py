@@ -30,6 +30,7 @@ from server.api.setup import router as setup_router
 from server.api.webpush import router as webpush_router
 from server.api.data import router as data_router
 from server.api.ws import router as ws_router
+from server.api.tasks import router as tasks_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -66,7 +67,19 @@ async def lifespan(app: FastAPI):
         },
     )
 
+    # Start background task timeout monitor
+    import asyncio
+    from server.services.task import run_timeout_monitor
+    monitor_task = asyncio.create_task(run_timeout_monitor())
+    logger.info("Task timeout monitor started.", extra={"event": "monitor_started"})
+
     yield
+
+    monitor_task.cancel()
+    try:
+        await monitor_task
+    except asyncio.CancelledError:
+        pass
 
     logger.info("Discoverykastle server shutting down...", extra={"event": "shutdown"})
     await registry.teardown_all()
@@ -112,6 +125,7 @@ app.include_router(netbox_router)
 app.include_router(modules_router)
 app.include_router(data_router)
 app.include_router(ws_router)
+app.include_router(tasks_router)
 
 
 @app.get("/sw.js", include_in_schema=False)
