@@ -3,13 +3,13 @@
 Last updated: 2026-04-19
 
 ## Currently open PR
-- PR #7: feat(server): task engine — AgentTask model, state machine, retry, timeout monitor — waiting for review
+- None
 
 ## Recently merged
+- PR #7: feat(server): task engine — AgentTask model, state machine, retry, timeout monitor — merged 2026-04-19
 - PR #6: feat(server): WebSocket task dispatch and dashboard real-time events — merged 2026-04-19
 - PR #5: feat(server): full data ingestion API — merged 2026-04-05
 - PR #4: feat/agent-registration-ca-auth — merged 2026-04-05
-- PR #3: docs/initial — merged 2026-03-21
 
 ## Todo (prioritized — pick from the top)
 
