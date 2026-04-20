@@ -85,6 +85,8 @@ class HeartbeatResponse(BaseModel):
 class TaskIn(BaseModel):
     action: str
     params: dict[str, Any] = {}
+    timeout_seconds: int = 600
+    max_attempts: int = 3
 
 
 class TaskOut(BaseModel):
@@ -92,6 +94,9 @@ class TaskOut(BaseModel):
     action: str
     params: dict[str, Any]
     status: str
+    attempt: int = 1
+    max_attempts: int = 3
+    created_at: datetime | None = None
 
 
 # ------------------------------------------------------------------
@@ -306,87 +311,92 @@ async def dispatch_task(
     """
     Dispatch a task to an agent (operator JWT required).
 
-    The task is placed in a Redis Stream keyed by ``agent:<agent_id>:tasks``.
-    The agent picks it up via its persistent WebSocket connection (WS handler
-    not yet implemented — tasks are queued for future delivery).
+    Creates a persistent :class:`~server.models.task.AgentTask` record and
+    enqueues the task to the agent's Redis Stream.  The agent picks it up via
+    its persistent WebSocket connection and sends back a ``task_result``
+    message when done.
     """
     agent = await db.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    task_id = str(uuid.uuid4())
+    from server.services.task import create_task
 
-    # Publish to Redis so the future WS handler can pick it up
-    try:
-        from server.config import settings
-        import redis.asyncio as aioredis
-
-        r = aioredis.from_url(settings.redis_url, decode_responses=True)
-        await r.xadd(
-            f"agent:{agent_id}:tasks",
-            {
-                "task_id": task_id,
-                "action": body.action,
-                "params": __import__("json").dumps(body.params),
-                "operator": operator,
-            },
-        )
-        await r.aclose()
-    except Exception:
-        logger.warning(
-            "Redis not available — task %s queued in memory only", task_id
-        )
+    task = await create_task(
+        db,
+        agent_id,
+        body.action,
+        body.params,
+        operator=operator,
+        timeout_seconds=body.timeout_seconds,
+        max_attempts=body.max_attempts,
+    )
 
     audit = AuditLog(
         agent_id=agent_id,
         user_id=operator,
         action="task_dispatched",
-        target=str(agent_id),
-        params={"task_id": task_id, "action": body.action, "params": body.params},
+        target=str(task.id),
+        params={"task_id": str(task.id), "action": body.action, "params": body.params},
         result="queued",
     )
     db.add(audit)
     await db.commit()
 
-    return TaskOut(task_id=task_id, action=body.action, params=body.params, status="queued")
+    logger.info("Task %s dispatched to agent %s by %s", task.id, agent_id, operator)
+
+    return TaskOut(
+        task_id=str(task.id),
+        action=task.action,
+        params=task.params,
+        status=task.status,
+        attempt=task.attempt,
+        max_attempts=task.max_attempts,
+        created_at=task.created_at,
+    )
 
 
 @router.get("/{agent_id}/tasks", response_model=list[TaskOut])
 async def list_agent_tasks(
     agent_id: uuid.UUID,
     operator: Annotated[str, Depends(require_operator)],
+    status_filter: str | None = None,
+    limit: int = 50,
     db: AsyncSession = Depends(get_db),
 ) -> list[TaskOut]:
     """
-    List queued tasks for an agent from the Redis Stream.
+    List tasks for an agent, ordered newest-first (operator JWT required).
 
-    Returns the pending messages without consuming them.
+    Query params:
+    - ``status``: filter by status (e.g. ``queued``, ``dispatched``, ``completed``)
+    - ``limit``: max results (default 50)
     """
+    from sqlalchemy import select as sa_select, desc
+
     agent = await db.get(Agent, agent_id)
     if not agent:
         raise HTTPException(status_code=404, detail="Agent not found")
 
-    try:
-        from server.config import settings
-        import redis.asyncio as aioredis
-        import json
+    from server.models.task import AgentTask
 
-        r = aioredis.from_url(settings.redis_url, decode_responses=True)
-        messages = await r.xrange(f"agent:{agent_id}:tasks")
-        await r.aclose()
+    q = sa_select(AgentTask).where(AgentTask.agent_id == agent_id)
+    if status_filter:
+        q = q.where(AgentTask.status == status_filter)
+    q = q.order_by(desc(AgentTask.created_at)).limit(limit)
 
-        return [
-            TaskOut(
-                task_id=msg[1].get("task_id", mid),
-                action=msg[1].get("action", ""),
-                params=json.loads(msg[1].get("params", "{}")),
-                status="queued",
-            )
-            for mid, msg in messages  # type: ignore[misc]
-        ]
-    except Exception:
-        logger.warning("Redis not available — cannot list tasks for agent %s", agent_id)
-        return []
+    rows = await db.execute(q)
+    return [
+        TaskOut(
+            task_id=str(t.id),
+            action=t.action,
+            params=t.params,
+            status=t.status,
+            attempt=t.attempt,
+            max_attempts=t.max_attempts,
+            created_at=t.created_at,
+        )
+        for t in rows.scalars()
+    ]
 
 
 # ------------------------------------------------------------------
