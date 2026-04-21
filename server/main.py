@@ -31,6 +31,7 @@ from server.api.webpush import router as webpush_router
 from server.api.data import router as data_router
 from server.api.ws import router as ws_router
 from server.api.tasks import router as tasks_router
+from server.api.vulns import router as vulns_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -126,6 +127,7 @@ app.include_router(modules_router)
 app.include_router(data_router)
 app.include_router(ws_router)
 app.include_router(tasks_router)
+app.include_router(vulns_router)
 
 
 @app.get("/sw.js", include_in_schema=False)
