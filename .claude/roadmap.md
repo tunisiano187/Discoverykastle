@@ -1,9 +1,9 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-04-19
+Last updated: 2026-04-21
 
 ## Currently open PR
-- None
+- PR #8: feat(server): vulnerability read API — list, summary, CVE detail — in review
 
 ## Recently merged
 - PR #7: feat(server): task engine — AgentTask model, state machine, retry, timeout monitor — merged 2026-04-19
@@ -13,13 +13,7 @@ Last updated: 2026-04-19
 
 ## Todo (prioritized — pick from the top)
 
-1. [HIGH] Vulnerability API
-   - GET /api/v1/vulns — all vulns, filterable by severity/host
-   - GET /api/v1/vulns/{cve_id} — CVE details + all affected hosts
-   - GET /api/v1/vulns/summary — severity distribution, top CVEs
-   - Data model and ingestion exist but no read endpoints yet
-
-2. [MEDIUM] React frontend (SPA dashboard)
+1. [MEDIUM] React frontend (SPA dashboard)
    - No frontend exists yet — only static sw.js and webpush.js
    - Topology view (Cytoscape.js), host inventory, vuln dashboard, agent dashboard
    - Auth login page, authorization queue UI
@@ -41,6 +35,7 @@ Last updated: 2026-04-19
 6. [LOW] GitHub issue templates and triage workflow
 
 ## Done
+- Vulnerability read API (list, summary, CVE detail) — PR #8
 - Task engine (AgentTask model, state machine, retry/backoff, timeout monitor) — PR #7
 - WebSocket task dispatch (WS /api/v1/ws/agent/{id}, WS /api/v1/ws/dashboard) — PR #6
 - Full data ingestion API — PR #5
