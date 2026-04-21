@@ -129,6 +129,21 @@ app.include_router(ws_router)
 app.include_router(tasks_router)
 app.include_router(vulns_router)
 
+# Serve the React SPA — static assets first, then index.html catch-all
+_ui_dir = Path(__file__).parent / "static" / "ui"
+if _ui_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(_ui_dir / "assets")), name="ui-assets")
+
+
+@app.get("/{path:path}", include_in_schema=False)
+async def spa_fallback(path: str) -> FileResponse:
+    """Serve the React SPA for all non-API routes."""
+    index = _ui_dir / "index.html"
+    if not index.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="UI not built")
+    return FileResponse(str(index))
+
 
 @app.get("/sw.js", include_in_schema=False)
 async def service_worker() -> FileResponse:
