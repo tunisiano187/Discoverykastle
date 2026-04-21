@@ -3,9 +3,10 @@
 Last updated: 2026-04-21
 
 ## Currently open PR
-- PR #8: feat(server): vulnerability read API — list, summary, CVE detail — in review
+- None
 
 ## Recently merged
+- PR #8: feat(server): vulnerability read API — list, summary, CVE detail — merged 2026-04-21
 - PR #7: feat(server): task engine — AgentTask model, state machine, retry, timeout monitor — merged 2026-04-19
 - PR #6: feat(server): WebSocket task dispatch and dashboard real-time events — merged 2026-04-19
 - PR #5: feat(server): full data ingestion API — merged 2026-04-05
