@@ -197,6 +197,32 @@ class AgentConfig:
     def puppet_batch_size(self) -> int:
         return int(self._get("PUPPET_BATCH_SIZE", "50"))
 
+    # ---- Network scanner (nmap) ----
+
+    @property
+    def nmap_enabled(self) -> bool:
+        return self._get("NMAP_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    @property
+    def nmap_scan_interval(self) -> int:
+        return int(self._get("NMAP_SCAN_INTERVAL", "3600"))
+
+    @property
+    def nmap_extra_args(self) -> str:
+        return self._get("NMAP_EXTRA_ARGS", "")
+
+    @property
+    def nmap_timeout(self) -> int:
+        return int(self._get("NMAP_TIMEOUT", "600"))
+
+    @property
+    def nmap_scan_private(self) -> bool:
+        return self._get("NMAP_SCAN_PRIVATE", "true").lower() not in ("0", "false", "no")
+
+    @property
+    def nmap_scan_public(self) -> bool:
+        return self._get("NMAP_SCAN_PUBLIC", "false").lower() in ("1", "true", "yes")
+
     # ---- Persistence ----
 
     def save(self, updates: dict[str, str]) -> None:
