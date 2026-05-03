@@ -149,6 +149,15 @@ class DKAgent:
                 "Puppet collector disabled (set PUPPET_ENABLED=true to enable)"
             )
 
+        if cfg.nmap_enabled:
+            tasks.append(
+                asyncio.create_task(self._nmap_loop(), name="nmap-collector")
+            )
+        else:
+            logger.info(
+                "Network scanner disabled (set NMAP_ENABLED=true to enable)"
+            )
+
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
@@ -235,6 +244,52 @@ class DKAgent:
                     os.environ.pop(k, None)
                 else:
                     os.environ[k] = v
+
+
+    # ------------------------------------------------------------------
+    # Network scanner (nmap) loop
+    # ------------------------------------------------------------------
+
+    async def _nmap_loop(self) -> None:
+        cfg = self.config
+        logger.info(
+            "Network scanner active — scan every %ds", cfg.nmap_scan_interval
+        )
+
+        while True:
+            try:
+                await asyncio.to_thread(self._run_nmap_scan)
+            except Exception:
+                logger.exception("Network scan cycle failed")
+            await asyncio.sleep(cfg.nmap_scan_interval)
+
+    def _run_nmap_scan(self) -> None:
+        """Run one nmap scan cycle synchronously in a thread."""
+        import ssl as _ssl
+        from agent.collectors.network_scan import NetworkScanCollector
+
+        cfg = self.config
+
+        ssl_ctx: _ssl.SSLContext | None = None
+        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
+            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
+            if cfg.agent_ca:
+                ssl_ctx.load_verify_locations(cfg.agent_ca)
+            else:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = _ssl.CERT_NONE
+
+        collector = NetworkScanCollector(
+            server_url=cfg.server_url,
+            agent_id=cfg.agent_id,
+            ssl_ctx=ssl_ctx,
+            extra_nmap_args=cfg.nmap_extra_args,
+            nmap_timeout=cfg.nmap_timeout,
+            scan_private=cfg.nmap_scan_private,
+            scan_public=cfg.nmap_scan_public,
+        )
+        collector.run_scan_cycle()
 
 
 # ------------------------------------------------------------------

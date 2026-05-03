@@ -46,6 +46,9 @@ _BUILTIN_MODULES = [
     # AI enrichment — disabled by default; activates only when
     # DKASTLE_AI_ENABLED=true and DKASTLE_ANTHROPIC_API_KEY is set.
     "server.modules.builtin.ai.module",
+    # LDAP/Active Directory enrichment — disabled by default; requires
+    # DKASTLE_LDAP_ENABLED=true + DKASTLE_LDAP_SERVER + bind credentials.
+    "server.modules.builtin.ldap.module",
 ]
 
 

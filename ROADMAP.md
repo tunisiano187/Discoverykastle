@@ -106,6 +106,7 @@
 | Module DNS (PTR + SOA + AD detect) | ✅ Done | `server/modules/builtin/dns/module.py` |
 | Module Puppet (PuppetDB pull + upsert) | ✅ Done | `server/modules/builtin/puppet/module.py` |
 | Module Ansible (AWX + fact-cache) | ✅ Done | `server/modules/builtin/ansible/module.py` |
+| Module LDAP/AD | ✅ Done | `server/modules/builtin/ldap/module.py` — enrichit OS, OU, last-logon |
 | Module NetBox | ✅ Done | Sync bidirectionnelle |
 | Module AI | ✅ Done | Enrichissement via Anthropic API (optionnel) |
 | Topologie réseau | ✅ Done | `TopologyEdge` + `GET /api/v1/topology` |
@@ -116,6 +117,7 @@
 
 | Composant | Statut | Notes |
 |-----------|--------|-------|
+| Collecteur nmap (network_scan.py) | ✅ Done | `agent/collectors/network_scan.py` — scan SYN/TCP, XML parser, submit hosts+services |
 | Config loader cross-platform | ✅ Done | `agent/config.py` — clé=valeur + env vars |
 | Core : enrollment + heartbeat | ✅ Done | `agent/core.py` — mTLS, POST /register |
 | Auto-update | ✅ Done | `agent/updater.py` — compare version, télécharge |
@@ -154,39 +156,10 @@
 
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
-| **Collecteur nmap côté DK agent** | Scan réseau actif — cœur du produit | Haute |
 | **CVE scan côté agent** (Grype/Trivy/NVD) | Détection vulns packages installés | Haute |
-| **Alembic migrations DB** | Les nouveaux champs (`domain_name`, etc.) ne sont pas migrés | Moyenne |
-| **Module LDAP/AD** | Requêtes LDAP serveur-side pour enrichir machines Windows | Haute |
-
-#### Détail : Collecteur nmap (agent)
-
-```python
-# agent/collectors/network_scan.py
-# - Lance nmap avec les args appropriés (SYN scan, service detect, OS detect)
-# - Respecte la politique : scan privé libre, scan public = vérifier AuthorizationRequest
-# - Soumet les résultats via POST /api/v1/data/discovery
-# - Lit les droits depuis la task engine (AgentTask avec type "network_scan")
-```
-
-#### Détail : Alembic migrations
-
-```bash
-# À créer :
-# alembic/versions/001_add_domain_name_to_networks.py
-# alembic/versions/002_add_authorization_requests.py
-# Actuellement les tables sont créées via create_all() — pas de migration incrémentale
-```
-
-#### Détail : Module LDAP/AD
-
-```python
-# server/modules/builtin/ldap/module.py
-# - Connexion ldap3 (async via executor)
-# - Requête CN=Computers pour lister les machines du domaine
-# - Enrichit Host avec: OU, groupes, OS version from AD, lastLogon
-# - Activé par DKASTLE_LDAP_ENABLED=true + LDAP_SERVER + bind DN/password
-```
+| ~~Collecteur nmap côté DK agent~~ | ✅ `agent/collectors/network_scan.py` | |
+| ~~Alembic migrations DB~~ | ✅ `alembic/` + `0001_initial_schema.py` | |
+| ~~Module LDAP/AD~~ | ✅ `server/modules/builtin/ldap/module.py` | |
 
 ### Priorité moyenne
 

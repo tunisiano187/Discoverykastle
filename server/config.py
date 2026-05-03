@@ -62,6 +62,8 @@ class Settings(BaseSettings):
     ldap_bind_dn: Optional[str] = None         # e.g. "CN=readonly,DC=example,DC=com"
     ldap_bind_password: Optional[str] = None
     ldap_base_dn: Optional[str] = None         # e.g. "DC=example,DC=com"
+    ldap_sync_interval: int = 3600             # seconds between full LDAP sync cycles
+    ldap_page_size: int = 500                  # paged results page size
 
     # ------------------------------------------------------------------ #
     # Puppet integration (disabled by default)
