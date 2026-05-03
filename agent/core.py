@@ -158,6 +158,15 @@ class DKAgent:
                 "Network scanner disabled (set NMAP_ENABLED=true to enable)"
             )
 
+        if cfg.cve_scan_enabled:
+            tasks.append(
+                asyncio.create_task(self._cve_loop(), name="cve-scanner")
+            )
+        else:
+            logger.info(
+                "CVE scanner disabled (set CVE_SCAN_ENABLED=true to enable)"
+            )
+
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
@@ -290,6 +299,49 @@ class DKAgent:
             scan_public=cfg.nmap_scan_public,
         )
         collector.run_scan_cycle()
+
+    # ------------------------------------------------------------------
+    # CVE scanner loop
+    # ------------------------------------------------------------------
+
+    async def _cve_loop(self) -> None:
+        cfg = self.config
+        logger.info("CVE scanner active — scan every %ds", cfg.cve_scan_interval)
+
+        while True:
+            try:
+                await asyncio.to_thread(self._run_cve_scan)
+            except Exception:
+                logger.exception("CVE scan cycle failed")
+            await asyncio.sleep(cfg.cve_scan_interval)
+
+    def _run_cve_scan(self) -> None:
+        """Run one CVE scan cycle synchronously in a thread."""
+        import ssl as _ssl
+        from agent.collectors.cve_scan import CVEScanCollector
+
+        cfg = self.config
+
+        ssl_ctx: _ssl.SSLContext | None = None
+        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
+            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
+            if cfg.agent_ca:
+                ssl_ctx.load_verify_locations(cfg.agent_ca)
+            else:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = _ssl.CERT_NONE
+
+        collector = CVEScanCollector(
+            server_url=cfg.server_url,
+            agent_id=cfg.agent_id,
+            ssl_ctx=ssl_ctx,
+            grype_path=cfg.cve_grype_path,
+            nvd_api_key=cfg.nvd_api_key,
+            nvd_batch_delay=cfg.cve_nvd_batch_delay,
+            max_packages=cfg.cve_max_packages,
+        )
+        collector.run_scan()
 
 
 # ------------------------------------------------------------------

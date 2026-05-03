@@ -223,6 +223,32 @@ class AgentConfig:
     def nmap_scan_public(self) -> bool:
         return self._get("NMAP_SCAN_PUBLIC", "false").lower() in ("1", "true", "yes")
 
+    # ---- CVE scanner ----
+
+    @property
+    def cve_scan_enabled(self) -> bool:
+        return self._get("CVE_SCAN_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    @property
+    def cve_scan_interval(self) -> int:
+        return int(self._get("CVE_SCAN_INTERVAL", "86400"))
+
+    @property
+    def cve_grype_path(self) -> str:
+        return self._get("CVE_GRYPE_PATH", "")
+
+    @property
+    def nvd_api_key(self) -> str:
+        return self._get("NVD_API_KEY", "")
+
+    @property
+    def cve_nvd_batch_delay(self) -> float:
+        return float(self._get("CVE_NVD_BATCH_DELAY", "0.25"))
+
+    @property
+    def cve_max_packages(self) -> int:
+        return int(self._get("CVE_MAX_PACKAGES", "500"))
+
     # ---- Persistence ----
 
     def save(self, updates: dict[str, str]) -> None:

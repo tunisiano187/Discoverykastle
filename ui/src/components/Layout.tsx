@@ -5,6 +5,8 @@ const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: "⬡" },
   { to: "/agents", label: "Agents", icon: "⚡" },
   { to: "/hosts", label: "Hosts", icon: "🖥" },
+  { to: "/networks", label: "Networks", icon: "◈" },
+  { to: "/topology", label: "Topology", icon: "⟁" },
   { to: "/vulns", label: "Vulnerabilities", icon: "🛡" },
 ];
 

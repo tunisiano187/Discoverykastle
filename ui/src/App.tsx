@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import Agents from "./pages/Agents";
 import Hosts from "./pages/Hosts";
 import Vulns from "./pages/Vulns";
+import Networks from "./pages/Networks";
+import Topology from "./pages/Topology";
 
 export default function App() {
   const auth = useAuthProvider();
@@ -27,6 +29,8 @@ export default function App() {
             <Route index element={<Dashboard />} />
             <Route path="agents" element={<Agents />} />
             <Route path="hosts" element={<Hosts />} />
+            <Route path="networks" element={<Networks />} />
+            <Route path="topology" element={<Topology />} />
             <Route path="vulns" element={<Vulns />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
