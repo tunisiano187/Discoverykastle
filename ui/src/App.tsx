@@ -9,6 +9,7 @@ import Hosts from "./pages/Hosts";
 import Vulns from "./pages/Vulns";
 import Networks from "./pages/Networks";
 import Topology from "./pages/Topology";
+import Devices from "./pages/Devices";
 
 export default function App() {
   const auth = useAuthProvider();
@@ -31,6 +32,7 @@ export default function App() {
             <Route path="hosts" element={<Hosts />} />
             <Route path="networks" element={<Networks />} />
             <Route path="topology" element={<Topology />} />
+            <Route path="devices" element={<Devices />} />
             <Route path="vulns" element={<Vulns />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />

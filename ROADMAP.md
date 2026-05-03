@@ -165,12 +165,12 @@
 
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
-| **Collecteur Ansible côté agent** | Cohérence avec Puppet : le fact-cache est sur le serveur Ansible, pas Docker | Faible |
-| **Page Topology dans le SPA** | Visualisation graphique des liens réseau | Haute (D3.js) |
-| **Page Networks dans le SPA** | Affichage des réseaux, ip_class, domain_name, bouton "demander scan" | Moyenne |
-| **Page Authorization Requests** | Workflow approve/deny pour les scans IP publiques | Faible |
-| **Page Devices dans le SPA** | Équipements réseau (switch, router) | Faible |
-| **Intégration Netmiko** | Collecte infos switch/router via SSH (Cisco, Juniper, Arista, MikroTik) | Haute |
+| ~~Collecteur Ansible côté agent~~ | ✅ `agent/collectors/ansible.py` | |
+| ~~Page Topology dans le SPA~~ | ✅ `ui/src/pages/Topology.tsx` | |
+| ~~Page Networks dans le SPA~~ | ✅ `ui/src/pages/Networks.tsx` | |
+| ~~Page Authorization Requests~~ | ✅ Intégré dans Networks (onglet) | |
+| ~~Page Devices dans le SPA~~ | ✅ `ui/src/pages/Devices.tsx` | |
+| ~~Intégration Netmiko~~ | ✅ `agent/collectors/netmiko_collector.py` | |
 | **Notifications email/Slack** | Alertes + nouvelles vulnérabilités | Faible |
 | **Documentation de déploiement** | Mise à jour docs/deployment.md avec nouveaux modules | Faible |
 

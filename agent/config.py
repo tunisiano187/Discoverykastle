@@ -249,6 +249,51 @@ class AgentConfig:
     def cve_max_packages(self) -> int:
         return int(self._get("CVE_MAX_PACKAGES", "500"))
 
+    # ---- Ansible fact-cache collector ----
+
+    @property
+    def ansible_enabled(self) -> bool:
+        return self._get("ANSIBLE_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    @property
+    def ansible_fact_cache_dir(self) -> str:
+        return self._get("ANSIBLE_FACT_CACHE_DIR", "")
+
+    @property
+    def ansible_sync_interval(self) -> int:
+        return int(self._get("ANSIBLE_SYNC_INTERVAL", "3600"))
+
+    @property
+    def ansible_batch_size(self) -> int:
+        return int(self._get("ANSIBLE_BATCH_SIZE", "50"))
+
+    # ---- Netmiko network device collector ----
+
+    @property
+    def netmiko_enabled(self) -> bool:
+        return self._get("NETMIKO_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    @property
+    def netmiko_devices_file(self) -> str:
+        if self._get("NETMIKO_DEVICES_FILE"):
+            return self._get("NETMIKO_DEVICES_FILE")
+        if sys.platform == "win32":
+            base = os.environ.get("ProgramData", r"C:\ProgramData")
+            return str(Path(base) / "Discoverykastle" / "Agent" / "network_devices.json")
+        return "/etc/discoverykastle/network_devices.json"
+
+    @property
+    def netmiko_sync_interval(self) -> int:
+        return int(self._get("NETMIKO_SYNC_INTERVAL", "3600"))
+
+    @property
+    def netmiko_timeout(self) -> int:
+        return int(self._get("NETMIKO_TIMEOUT", "30"))
+
+    @property
+    def netmiko_redact_config(self) -> bool:
+        return self._get("NETMIKO_REDACT_CONFIG", "true").lower() not in ("0", "false", "no")
+
     # ---- Persistence ----
 
     def save(self, updates: dict[str, str]) -> None:
