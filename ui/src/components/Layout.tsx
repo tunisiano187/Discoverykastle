@@ -7,6 +7,7 @@ const NAV_ITEMS = [
   { to: "/hosts", label: "Hosts", icon: "🖥" },
   { to: "/networks", label: "Networks", icon: "◈" },
   { to: "/topology", label: "Topology", icon: "⟁" },
+  { to: "/devices", label: "Devices", icon: "⊞" },
   { to: "/vulns", label: "Vulnerabilities", icon: "🛡" },
 ];
 

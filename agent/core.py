@@ -167,6 +167,24 @@ class DKAgent:
                 "CVE scanner disabled (set CVE_SCAN_ENABLED=true to enable)"
             )
 
+        if cfg.ansible_enabled and cfg.ansible_fact_cache_dir:
+            tasks.append(
+                asyncio.create_task(self._ansible_loop(), name="ansible-collector")
+            )
+        elif cfg.ansible_enabled:
+            logger.warning(
+                "Ansible collector enabled but ANSIBLE_FACT_CACHE_DIR not set — skipping"
+            )
+
+        if cfg.netmiko_enabled:
+            tasks.append(
+                asyncio.create_task(self._netmiko_loop(), name="netmiko-collector")
+            )
+        else:
+            logger.info(
+                "Netmiko collector disabled (set NETMIKO_ENABLED=true to enable)"
+            )
+
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
@@ -342,6 +360,87 @@ class DKAgent:
             max_packages=cfg.cve_max_packages,
         )
         collector.run_scan()
+
+    # ------------------------------------------------------------------
+    # Ansible fact-cache collector loop
+    # ------------------------------------------------------------------
+
+    async def _ansible_loop(self) -> None:
+        cfg = self.config
+        logger.info(
+            "Ansible fact-cache collector active — sync every %ds from %s",
+            cfg.ansible_sync_interval, cfg.ansible_fact_cache_dir,
+        )
+        while True:
+            try:
+                await asyncio.to_thread(self._run_ansible_sync)
+            except Exception:
+                logger.exception("Ansible sync failed")
+            await asyncio.sleep(cfg.ansible_sync_interval)
+
+    def _run_ansible_sync(self) -> None:
+        import ssl as _ssl
+        from agent.collectors.ansible import AnsibleFactCacheCollector
+
+        cfg = self.config
+        ssl_ctx: _ssl.SSLContext | None = None
+        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
+            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
+            if cfg.agent_ca:
+                ssl_ctx.load_verify_locations(cfg.agent_ca)
+            else:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = _ssl.CERT_NONE
+
+        AnsibleFactCacheCollector(
+            server_url=cfg.server_url,
+            agent_id=cfg.agent_id,
+            cache_dir=cfg.ansible_fact_cache_dir,
+            ssl_ctx=ssl_ctx,
+            batch_size=cfg.ansible_batch_size,
+        ).run_sync()
+
+    # ------------------------------------------------------------------
+    # Netmiko network device collector loop
+    # ------------------------------------------------------------------
+
+    async def _netmiko_loop(self) -> None:
+        cfg = self.config
+        logger.info(
+            "Netmiko collector active — sync every %ds, devices file: %s",
+            cfg.netmiko_sync_interval, cfg.netmiko_devices_file,
+        )
+        while True:
+            try:
+                await asyncio.to_thread(self._run_netmiko_sync)
+            except Exception:
+                logger.exception("Netmiko sync failed")
+            await asyncio.sleep(cfg.netmiko_sync_interval)
+
+    def _run_netmiko_sync(self) -> None:
+        import ssl as _ssl
+        from agent.collectors.netmiko_collector import NetmikoCollector
+
+        cfg = self.config
+        ssl_ctx: _ssl.SSLContext | None = None
+        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
+            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
+            if cfg.agent_ca:
+                ssl_ctx.load_verify_locations(cfg.agent_ca)
+            else:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = _ssl.CERT_NONE
+
+        NetmikoCollector(
+            server_url=cfg.server_url,
+            agent_id=cfg.agent_id,
+            devices_file=cfg.netmiko_devices_file,
+            ssl_ctx=ssl_ctx,
+            timeout=cfg.netmiko_timeout,
+            redact_config=cfg.netmiko_redact_config,
+        ).run_sync()
 
 
 # ------------------------------------------------------------------
