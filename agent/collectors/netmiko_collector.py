@@ -54,7 +54,7 @@ logger = logging.getLogger(__name__)
 # Regex patterns to redact sensitive values from device configs
 _REDACT_PATTERNS = [
     re.compile(r"(password\s+)\S+", re.IGNORECASE),
-    re.compile(r"(secret\s+)\S+", re.IGNORECASE),
+    re.compile(r"(secret\s+(?:\d+\s+)?)\S+", re.IGNORECASE),
     re.compile(r"(community\s+)\S+", re.IGNORECASE),
     re.compile(r"(key-string\s+)\S+", re.IGNORECASE),
     re.compile(r"(pre-shared-key\s+)\S+", re.IGNORECASE),

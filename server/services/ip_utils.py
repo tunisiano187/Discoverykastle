@@ -69,8 +69,11 @@ def is_private_cidr(cidr: str) -> bool:
         network = ipaddress.ip_network(cidr, strict=False)
         # Check network address and broadcast against all private ranges
         for priv_net in _PRIVATE_NETWORKS:
-            if network.subnet_of(priv_net):  # type: ignore[arg-type]
-                return True
+            try:
+                if network == priv_net or network.subnet_of(priv_net):  # type: ignore[arg-type]
+                    return True
+            except TypeError:
+                pass  # mismatched address families (IPv4 vs IPv6)
         return False
     except (ValueError, TypeError):
         return False
@@ -98,7 +101,7 @@ def classify_cidr(cidr: str) -> str:
         if is_private_cidr(cidr):
             return "private"
         # If any host address is private the block is mixed
-        first = next(network.hosts(), None)
+        first = next(iter(network.hosts()), None)
         if first is None:
             # Host-route /32 or /128
             first = network.network_address
