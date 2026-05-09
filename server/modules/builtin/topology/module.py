@@ -22,7 +22,7 @@ from server.modules.base import BaseModule, ModuleCapability, ModuleManifest
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from server.models import Host, NetworkDevice, Network, ScanResult
+    from server.models import NetworkDevice, ScanResult
 
 
 class Module(BaseModule):
@@ -174,8 +174,8 @@ class Module(BaseModule):
         lines += [
             "## Summary",
             "",
-            f"| Metric | Count |",
-            f"|--------|-------|",
+            "| Metric | Count |",
+            "|--------|-------|",
             f"| Hosts | {host_count} |",
             f"| Network Devices | {device_count} |",
             f"| Networks | {network_count} |",

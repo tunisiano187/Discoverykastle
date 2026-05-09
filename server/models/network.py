@@ -38,7 +38,7 @@ class NetworkInterface(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
-    host: Mapped["Host"] = relationship("Host", back_populates="interfaces")
+    host: Mapped["Host"] = relationship("Host", back_populates="interfaces")  # noqa: F821
     network: Mapped["Network | None"] = relationship("Network", back_populates="interfaces")
 
 

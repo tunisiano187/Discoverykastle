@@ -39,7 +39,7 @@ class TestJWTTokens:
     def test_expired_token_raises(self) -> None:
         # Build a token with an expiry in the past by patching the datetime
         from unittest.mock import patch
-        from datetime import datetime, timezone, timedelta
+        from datetime import datetime, timezone
 
         past = datetime(2000, 1, 1, tzinfo=timezone.utc)
         with patch("server.services.auth.datetime") as mock_dt:

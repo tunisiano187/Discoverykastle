@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import urllib.error
 import urllib.request
@@ -54,7 +53,7 @@ logger = logging.getLogger(__name__)
 # Regex patterns to redact sensitive values from device configs
 _REDACT_PATTERNS = [
     re.compile(r"(password\s+)\S+", re.IGNORECASE),
-    re.compile(r"(secret\s+)\S+", re.IGNORECASE),
+    re.compile(r"(secret\s+(?:\d+\s+)?)\S+", re.IGNORECASE),
     re.compile(r"(community\s+)\S+", re.IGNORECASE),
     re.compile(r"(key-string\s+)\S+", re.IGNORECASE),
     re.compile(r"(pre-shared-key\s+)\S+", re.IGNORECASE),
@@ -376,7 +375,7 @@ class NetmikoCollector:
                 continue
 
             # Strip internal keys before submission
-            arp_entries = result.pop("_arp_entries", [])
+            _ = result.pop("_arp_entries", [])
             lldp_neighbours = result.pop("_lldp_neighbours", [])
 
             device_configs.append(result)

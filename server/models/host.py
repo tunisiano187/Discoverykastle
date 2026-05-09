@@ -22,8 +22,8 @@ class Host(Base):
 
     services: Mapped[list["Service"]] = relationship("Service", back_populates="host", cascade="all, delete-orphan")
     packages: Mapped[list["Package"]] = relationship("Package", back_populates="host", cascade="all, delete-orphan")
-    vulnerabilities: Mapped[list["Vulnerability"]] = relationship("Vulnerability", back_populates="host")
-    interfaces: Mapped[list["NetworkInterface"]] = relationship("NetworkInterface", back_populates="host")
+    vulnerabilities: Mapped[list["Vulnerability"]] = relationship("Vulnerability", back_populates="host")  # noqa: F821
+    interfaces: Mapped[list["NetworkInterface"]] = relationship("NetworkInterface", back_populates="host")  # noqa: F821
 
 
 class Service(Base):
@@ -54,4 +54,4 @@ class Package(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     host: Mapped["Host"] = relationship("Host", back_populates="packages")
-    vulnerabilities: Mapped[list["Vulnerability"]] = relationship("Vulnerability", back_populates="package")
+    vulnerabilities: Mapped[list["Vulnerability"]] = relationship("Vulnerability", back_populates="package")  # noqa: F821

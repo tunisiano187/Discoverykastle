@@ -121,7 +121,7 @@ class Module(BaseModule):
                     answer = resolver.resolve(zone, "SOA")
                     # SOA mname is the primary name server — extract domain
                     soa = answer[0]
-                    mname = str(soa.mname).rstrip(".")
+                    _ = str(soa.mname).rstrip(".")
                     # The zone itself is the domain
                     return zone.rstrip(".")
                 except (dns.resolver.NXDOMAIN, dns.resolver.NoAnswer, dns.exception.DNSException):

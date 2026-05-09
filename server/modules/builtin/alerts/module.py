@@ -22,7 +22,7 @@ from server.modules.base import BaseModule, ModuleCapability, ModuleManifest
 
 if TYPE_CHECKING:
     from sqlalchemy.ext.asyncio import AsyncSession
-    from server.models import Host, Vulnerability, NetworkDevice, Network, ScanResult
+    from server.models import Host, Vulnerability, Network, ScanResult
 
 logger = logging.getLogger(__name__)
 

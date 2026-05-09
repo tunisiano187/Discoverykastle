@@ -25,7 +25,7 @@ from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.database import AsyncSessionLocal
-from server.models.task import TERMINAL_STATUSES, AgentTask
+from server.models.task import AgentTask
 
 logger = logging.getLogger(__name__)
 

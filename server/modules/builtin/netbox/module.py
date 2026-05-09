@@ -389,7 +389,7 @@ class Module(BaseModule):
         """
         from server.models.device import NetworkDevice
         from server.models.network import NetworkInterface
-        from sqlalchemy import select, and_
+        from sqlalchemy import select
 
         BATCH = 50
         created = 0

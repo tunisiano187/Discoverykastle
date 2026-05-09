@@ -116,7 +116,10 @@ def _load_puppet_yaml(text: str) -> Any:
     _RubyLoader.add_multi_constructor("!ruby/sym", _ruby_any)
     _RubyLoader.add_multi_constructor("!ruby/", _ruby_any)
 
-    return yaml.load(text, Loader=_RubyLoader)  # noqa: S506
+    try:
+        return yaml.load(text, Loader=_RubyLoader)  # noqa: S506
+    except yaml.YAMLError:
+        return None
 
 
 # ---------------------------------------------------------------------------

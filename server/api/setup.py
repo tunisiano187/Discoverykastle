@@ -12,13 +12,11 @@ Once properly configured, all /setup routes redirect to /.
 
 from __future__ import annotations
 
-import os
 import secrets
 import base64
 from pathlib import Path
-from typing import Annotated
 
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 

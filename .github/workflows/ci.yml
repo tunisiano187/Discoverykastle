@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  test:
+    name: Test Suite
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --upgrade pip
+          # Install only what the tests need — avoids building heavy native
+          # extensions (asyncpg, cryptography/bcrypt, etc.) that are mocked.
+          pip install \
+            pytest>=8 pytest-asyncio>=0.23 httpx>=0.27 ruff>=0.4 \
+            fastapi>=0.111 pydantic>=2.7 "pydantic-settings>=2.3" \
+            "sqlalchemy[asyncio]>=2.0" pyyaml>=6.0 \
+            jinja2>=3.1
+
+      - name: Lint (ruff)
+        run: ruff check .
+
+      - name: Run tests
+        id: run_tests
+        run: |
+          python -m pytest \
+            tests/test_ip_utils.py \
+            tests/test_agent_collectors.py \
+            tests/test_ldap_module.py \
+            tests/test_inventory.py \
+            tests/test_data_ingestion.py \
+            tests/test_version.py \
+            -v --tb=short --junit-xml=test-results.xml
+        continue-on-error: true
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+
+      # ------------------------------------------------------------------
+      # Auto-create a GitHub issue when tests fail, unless one already
+      # exists with the same title (prevents spam on repeated failures).
+      # ------------------------------------------------------------------
+      - name: Create issue on failure
+        if: steps.run_tests.outcome == 'failure'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const title = `CI failure on ${context.ref} (${context.sha.substring(0, 7)})`;
+            const label = 'ci-failure';
+
+            // Check for an existing open issue with the same label to avoid duplicates
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+
+            if (existing.length > 0) {
+              console.log(`Open CI-failure issue already exists (#${existing[0].number}) — skipping creation`);
+              return;
+            }
+
+            const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+            const body = [
+              `## CI failure`,
+              ``,
+              `**Branch:** \`${context.ref}\``,
+              `**Commit:** \`${context.sha}\``,
+              `**Run:** [${context.runId}](${runUrl})`,
+              ``,
+              `Tests failed in the CI pipeline. Check the [run log](${runUrl}) for details.`,
+              ``,
+              `This issue was created automatically and will be closed once CI passes again.`,
+            ].join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title,
+              body,
+              labels: [label],
+            });
+
+      # Close any open CI-failure issue when tests pass again
+      - name: Close CI failure issue on success
+        if: steps.run_tests.outcome == 'success'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const label = 'ci-failure';
+            const { data: existing } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: label,
+            });
+
+            for (const issue of existing) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+              });
+              console.log(`Closed CI failure issue #${issue.number}`);
+            }
+
+      # Fail the job after issue creation so the PR is marked red
+      - name: Fail job if tests failed
+        if: steps.run_tests.outcome == 'failure'
+        run: exit 1

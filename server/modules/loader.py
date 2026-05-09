@@ -17,7 +17,6 @@ import importlib
 import importlib.metadata
 import importlib.util
 import logging
-import os
 import sys
 from pathlib import Path
 
