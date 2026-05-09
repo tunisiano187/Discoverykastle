@@ -1,6 +1,6 @@
 # Discoverykastle — Roadmap & État du projet
 
-> Dernière mise à jour : avril 2026
+> Dernière mise à jour : mai 2026
 
 ---
 
@@ -147,6 +147,8 @@
 | Docker Compose (serveur + PostgreSQL + Redis) | ✅ Done | `docker-compose.yml` |
 | Script d'installation one-liner | ✅ Done | `install.sh` |
 | Tests (auth, CA, data ingestion, tasks, vulns, WS) | ✅ Done | `tests/` — pytest |
+| Tests unitaires (ip_utils, collectors, LDAP, inventory, notifications) | ✅ Done | 151+ tests, 0 failures |
+| GitHub Actions CI + auto-issue | ✅ Done | `.github/workflows/ci.yml` — lint + pytest, crée issue si échec |
 
 ---
 
@@ -156,7 +158,7 @@
 
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
-| **CVE scan côté agent** (Grype/Trivy/NVD) | Détection vulns packages installés | Haute |
+| ~~CVE scan côté agent (Grype/NVD)~~ | ✅ `agent/collectors/cve_scan.py` | |
 | ~~Collecteur nmap côté DK agent~~ | ✅ `agent/collectors/network_scan.py` | |
 | ~~Alembic migrations DB~~ | ✅ `alembic/` + `0001_initial_schema.py` | |
 | ~~Module LDAP/AD~~ | ✅ `server/modules/builtin/ldap/module.py` | |
@@ -171,7 +173,7 @@
 | ~~Page Authorization Requests~~ | ✅ Intégré dans Networks (onglet) | |
 | ~~Page Devices dans le SPA~~ | ✅ `ui/src/pages/Devices.tsx` | |
 | ~~Intégration Netmiko~~ | ✅ `agent/collectors/netmiko_collector.py` | |
-| **Notifications email/Slack** | Alertes + nouvelles vulnérabilités | Faible |
+| ~~Notifications email/Slack~~ | ✅ SMTP + Slack webhook + generic webhook dans `alerts/module.py` | |
 | **Documentation de déploiement** | Mise à jour docs/deployment.md avec nouveaux modules | Faible |
 
 ### Priorité basse

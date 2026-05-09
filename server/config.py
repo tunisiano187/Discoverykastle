@@ -113,7 +113,11 @@ class Settings(BaseSettings):
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
     smtp_from: Optional[str] = None
+    smtp_to: Optional[str] = None          # comma-separated recipient list
+    smtp_tls: bool = True                  # STARTTLS on port 587; set False for port 25
+    smtp_alert_min_severity: str = "high"  # minimum severity: critical | high | medium | low
     slack_webhook_url: Optional[str] = None
+    slack_alert_min_severity: str = "high"
     generic_webhook_url: Optional[str] = None
 
     # NetBox integration (optional)
