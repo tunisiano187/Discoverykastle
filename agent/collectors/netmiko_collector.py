@@ -42,7 +42,6 @@ from __future__ import annotations
 
 import json
 import logging
-import os
 import re
 import urllib.error
 import urllib.request
@@ -376,7 +375,7 @@ class NetmikoCollector:
                 continue
 
             # Strip internal keys before submission
-            arp_entries = result.pop("_arp_entries", [])
+            _ = result.pop("_arp_entries", [])
             lldp_neighbours = result.pop("_lldp_neighbours", [])
 
             device_configs.append(result)

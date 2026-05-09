@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 
 from server.services.version import (
     MINIMUM_AGENT_VERSION,

@@ -25,7 +25,6 @@ import logging
 import os
 import sys
 import threading
-import time
 from pathlib import Path
 
 # pywin32 is Windows-only
@@ -123,7 +122,7 @@ class DiscoverykastleAgentService(win32serviceutil.ServiceFramework):
             self._loop.close()
 
 
-def _setup_win_logging(cfg: "AgentConfig") -> None:  # type: ignore[name-defined]
+def _setup_win_logging(cfg: "AgentConfig") -> None:  # type: ignore[name-defined]  # noqa: F821
     import logging.handlers
 
     log_path = Path(cfg.log_file)

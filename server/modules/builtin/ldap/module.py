@@ -188,7 +188,7 @@ class Module(BaseModule):
             get_info=ldap3.ALL,
             connect_timeout=10,
         )
-        use_ssl = settings.ldap_server.lower().startswith("ldaps://")
+        use_ssl = settings.ldap_server.lower().startswith("ldaps://")  # noqa: F841
         conn = ldap3.Connection(
             server,
             user=settings.ldap_bind_dn,
@@ -366,7 +366,7 @@ class Module(BaseModule):
             return
 
         try:
-            import ldap3
+            import ldap3  # noqa: F401 (needed to check availability)
 
             base_dn = settings.ldap_base_dn or ""
             fqdn: str = host.fqdn

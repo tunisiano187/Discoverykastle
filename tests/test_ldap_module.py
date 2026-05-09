@@ -6,9 +6,7 @@ Tests only the pure helper functions — no LDAP server required.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 
-import pytest
 
 from server.modules.builtin.ldap.module import (
     _extract_ou_path,
@@ -88,7 +86,6 @@ class TestUacDisabledFlag:
         assert not bool(uac_enabled & _UAC_DISABLED)
 
     def test_domain_controller_flag(self) -> None:
-        uac_dc = 0x0082  # server trust + disabled bit not set for DC
         # DC accounts are enabled (bit 1 not set)
         assert not bool(0x0082 & _UAC_DISABLED) or bool(0x0082 & _UAC_DISABLED)
         # Just verify the constant is 2

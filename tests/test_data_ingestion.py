@@ -17,22 +17,15 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch, MagicMock
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.api.data import (
-    IngestionResult,
     HostBatch,
     HostRecord,
     ServiceBatch,
     ServiceRecord,
-    PackageBatch,
-    PackageRecord,
     VulnerabilityBatch,
     VulnerabilityRecord,
-    InterfaceBatch,
-    InterfaceRecord,
     ScanResultBatch,
     ScanResultRecord,
     DeviceConfigBatch,
@@ -41,10 +34,8 @@ from server.api.data import (
     TopologyEdgeRecord,
 )
 from server.models.agent import Agent
-from server.models.host import Host, Service, Package
-from server.models.network import NetworkInterface, TopologyEdge, ScanResult, Network
+from server.models.host import Host
 from server.models.device import NetworkDevice
-from server.models.vulnerability import Vulnerability
 
 
 # ---------------------------------------------------------------------------

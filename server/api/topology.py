@@ -4,7 +4,7 @@ Topology API — /api/v1/topology
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.database import get_db

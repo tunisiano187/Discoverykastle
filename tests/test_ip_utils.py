@@ -4,7 +4,6 @@ Tests for server/services/ip_utils.py — IP/CIDR classification helpers.
 
 from __future__ import annotations
 
-import pytest
 
 from server.services.ip_utils import (
     is_private_ip,

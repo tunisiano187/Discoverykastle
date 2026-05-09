@@ -5,7 +5,7 @@ Base class and registry for AI backends.
 from __future__ import annotations
 
 import abc
-from typing import Any, Callable
+from typing import Callable
 
 # ──────────────────────────────────────────────────────────────────────────────
 # Registry

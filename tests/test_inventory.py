@@ -16,7 +16,7 @@ from fastapi.testclient import TestClient
 
 from server.api.inventory import router, NetworkOut
 from server.models.network import Network
-from server.models.agent import AuthorizationRequest, Agent
+from server.models.agent import AuthorizationRequest
 
 
 # ---------------------------------------------------------------------------
@@ -133,7 +133,6 @@ class TestListNetworks:
         from server.database import get_db
         app.dependency_overrides[get_db] = override_get_db
 
-        from unittest.mock import patch
         with patch("server.api.inventory.get_current_user", return_value="admin"):
             return TestClient(app)
 

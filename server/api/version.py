@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 
 from server.services.auth import require_operator
-from server.services.version import MINIMUM_AGENT_VERSION, check_for_updates, current_version
+from server.services.version import MINIMUM_AGENT_VERSION, check_for_updates
 
 router = APIRouter(prefix="/api/v1/version", tags=["version"])
 
