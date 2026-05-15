@@ -43,6 +43,7 @@ jobs:
             tests/test_ldap_module.py \
             tests/test_inventory.py \
             tests/test_notifications.py \
+            tests/test_cli.py \
             tests/test_data_ingestion.py \
             tests/test_version.py \
             -v --tb=short --junit-xml=test-results.xml

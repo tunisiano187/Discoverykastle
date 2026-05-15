@@ -75,6 +75,10 @@ webpush = [
 #   [project.entry-points."discoverykastle.modules"]
 #   my-module = "my_package.module:Module"
 # ------------------------------------------------------------------
+[project.scripts]
+# Admin CLI — installed as `dkctl` on the PATH
+dkctl = "server.cli.main:main"
+
 [project.entry-points."discoverykastle.modules"]
 # (built-ins are loaded directly by the loader, not via entry points)
 
