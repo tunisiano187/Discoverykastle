@@ -95,14 +95,129 @@ The first startup will:
 
 ### Notifications (optional)
 
-| Variable | Description |
-|----------|-------------|
-| `DKASTLE_SMTP_HOST` | SMTP server hostname |
-| `DKASTLE_SMTP_PORT` | SMTP port (default: 587) |
-| `DKASTLE_SMTP_USER` | SMTP username |
-| `DKASTLE_SMTP_PASSWORD` | SMTP password |
-| `DKASTLE_ALERT_EMAIL` | Email address for alerts |
-| `DKASTLE_SLACK_WEBHOOK` | Slack incoming webhook URL |
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DKASTLE_SMTP_HOST` | SMTP server hostname | — |
+| `DKASTLE_SMTP_PORT` | SMTP port | `587` |
+| `DKASTLE_SMTP_USER` | SMTP username | — |
+| `DKASTLE_SMTP_PASSWORD` | SMTP password | — |
+| `DKASTLE_SMTP_FROM` | Sender address | — |
+| `DKASTLE_SMTP_TO` | Comma-separated recipient list | — |
+| `DKASTLE_SMTP_TLS` | Use STARTTLS (set `false` for port 25) | `true` |
+| `DKASTLE_SMTP_ALERT_MIN_SEVERITY` | Minimum severity to email (`low`/`medium`/`high`/`critical`) | `high` |
+| `DKASTLE_SLACK_WEBHOOK_URL` | Slack incoming webhook URL | — |
+| `DKASTLE_SLACK_ALERT_MIN_SEVERITY` | Minimum severity for Slack | `high` |
+| `DKASTLE_GENERIC_WEBHOOK_URL` | Generic JSON webhook endpoint | — |
+
+### LDAP / Active Directory (optional)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `DKASTLE_LDAP_ENABLED` | Enable LDAP enrichment | `false` |
+| `DKASTLE_LDAP_SERVER` | LDAP server URL (ldap:// or ldaps://) | — |
+| `DKASTLE_LDAP_BIND_DN` | Bind DN for read-only account | — |
+| `DKASTLE_LDAP_BIND_PASSWORD` | Bind password | — |
+| `DKASTLE_LDAP_BASE_DN` | Base DN for computer searches | — |
+| `DKASTLE_LDAP_SYNC_INTERVAL` | Sync interval in seconds | `3600` |
+| `DKASTLE_LDAP_PAGE_SIZE` | LDAP paged-search page size | `500` |
+
+### Agent — Network scan (nmap)
+
+Set these in `/etc/discoverykastle/agent.conf` on each agent host.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NMAP_ENABLED` | Enable nmap network scan collector | `false` |
+| `NMAP_SCAN_INTERVAL` | Seconds between scan cycles | `3600` |
+| `NMAP_EXTRA_ARGS` | Extra nmap arguments | — |
+| `NMAP_TIMEOUT` | Per-target timeout (seconds) | `300` |
+| `NMAP_SCAN_PRIVATE` | Scan private/RFC-1918 networks | `true` |
+| `NMAP_SCAN_PUBLIC` | Scan authorized public networks | `false` |
+
+Requires `nmap` installed on the agent host. For SYN scans the agent needs `NET_RAW` capability.
+
+### Agent — CVE scan (Grype / NVD)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `CVE_SCAN_ENABLED` | Enable CVE scanning | `false` |
+| `CVE_SCAN_INTERVAL` | Seconds between scan cycles | `86400` |
+| `CVE_GRYPE_PATH` | Path to `grype` binary | `grype` |
+| `NVD_API_KEY` | NVD REST API key (fallback when Grype unavailable) | — |
+
+Grype is preferred. If not installed the collector falls back to NVD REST API v2 (rate-limited to 5 req/30 s without an API key).
+
+### Agent — Ansible fact-cache
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `ANSIBLE_ENABLED` | Enable Ansible fact-cache collector | `false` |
+| `ANSIBLE_FACT_CACHE_DIR` | Path to Ansible fact-cache directory | — |
+| `ANSIBLE_SYNC_INTERVAL` | Seconds between sync cycles | `3600` |
+| `ANSIBLE_BATCH_SIZE` | Hosts per HTTP request | `50` |
+
+### Agent — Netmiko (network devices)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `NETMIKO_ENABLED` | Enable Netmiko network device collector | `false` |
+| `NETMIKO_DEVICES_FILE` | Path to JSON device definitions file | `/etc/discoverykastle/network_devices.json` |
+| `NETMIKO_SYNC_INTERVAL` | Seconds between collection cycles | `3600` |
+| `NETMIKO_TIMEOUT` | SSH connection timeout (seconds) | `30` |
+| `NETMIKO_REDACT_CONFIG` | Redact passwords from collected configs | `true` |
+
+Device file format:
+```json
+[
+  {"host": "192.168.1.1", "device_type": "cisco_ios", "username": "readonly", "password": "xxx"},
+  {"host": "192.168.1.2", "device_type": "juniper_junos", "username": "readonly", "password": "xxx"}
+]
+```
+
+Supported device types: `cisco_ios`, `cisco_ios_xe`, `cisco_ios_xr`, `cisco_nxos`, `cisco_asa`, `juniper_junos`, `arista_eos`, `mikrotik_routeros`, `hp_procurve`, `hp_comware`, `fortinet`.
+
+---
+
+## Web Interface — New Pages
+
+Since the initial release the React SPA has gained three additional pages accessible from the sidebar:
+
+| Page | Route | Description |
+|------|-------|-------------|
+| **Networks** | `/networks` | Lists discovered CIDR blocks with `ip_class` badge (private/public). Public networks show a "Request scan" button that creates an `AuthorizationRequest`. The **Auth Requests** tab lets operators approve or deny pending requests. |
+| **Topology** | `/topology` | SVG graph of the network topology. Nodes represent hosts; edges come from LLDP/CDP/ARP data collected by Netmiko agents. Hover a node to see FQDN, IPs, OS, and last-seen timestamp. |
+| **Devices** | `/devices` | Table of network devices (switches, routers, firewalls) discovered via Netmiko. Columns: IP, hostname, device type badge, vendor/model, firmware version, last updated. |
+
+---
+
+## Database Migrations (Alembic)
+
+Schema changes are managed via Alembic incremental migrations rather than `create_all()`.
+
+```bash
+# Apply all pending migrations (run after every upgrade)
+docker compose run --rm server alembic upgrade head
+
+# Check current migration state
+docker compose run --rm server alembic current
+
+# Existing installations — stamp to skip initial migration
+docker compose run --rm server alembic stamp 0001
+```
+
+The migration files live in `alembic/versions/`. The initial migration (`0001_initial_schema.py`) creates all tables. Subsequent migrations add columns and indexes incrementally.
+
+---
+
+## Continuous Integration
+
+The repository ships a GitHub Actions workflow (`.github/workflows/ci.yml`) that runs on every push and PR:
+
+1. **Lint** — `ruff check .` (zero tolerance)
+2. **Tests** — `pytest` on all unit-test modules (no database or network required)
+3. **Auto-issue** — if tests fail and no `ci-failure` issue is open, one is created automatically; it is closed when CI goes green again
+
+To use the auto-issue feature, create a `ci-failure` label in your GitHub repository (Issues → Labels → New label).
 
 ---
 

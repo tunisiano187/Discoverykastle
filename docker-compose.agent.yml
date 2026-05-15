@@ -1,0 +1,60 @@
+# Discoverykastle — Agent service overlay
+#
+# Adds a local DK agent container to the server stack.
+# Useful for development or single-host deployments where the agent
+# runs on the same machine as the server.
+#
+# Usage:
+#   docker compose -f docker-compose.yml -f docker-compose.agent.yml up -d
+#
+# Environment variables (set in .env or pass -e on the CLI):
+#   DKASTLE_SERVER_URL   — URL of the DK server (default: https://server:8443)
+#   DKASTLE_ENROLL_TOKEN — One-time enrollment token (from server dashboard)
+
+services:
+  agent:
+    build:
+      context: .
+      dockerfile: agent/Dockerfile
+    image: discoverykastle-agent:local
+    container_name: dkastle-agent
+    restart: unless-stopped
+
+    # NET_RAW + NET_ADMIN required for nmap SYN scans (NMAP_ENABLED=true).
+    # Remove these capabilities if you only need passive / TCP-connect scans.
+    cap_add:
+      - NET_ADMIN
+      - NET_RAW
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+
+    environment:
+      DKASTLE_SERVER_URL:   ${DKASTLE_SERVER_URL:-https://server:8443}
+      DKASTLE_ENROLL_TOKEN: ${DKASTLE_ENROLL_TOKEN:?Set DKASTLE_ENROLL_TOKEN in .env}
+      DKASTLE_LOG_LEVEL:    ${DKASTLE_LOG_LEVEL:-INFO}
+      # Optional collectors — set to "true" to enable
+      NMAP_ENABLED:         ${NMAP_ENABLED:-false}
+      CVE_SCAN_ENABLED:     ${CVE_SCAN_ENABLED:-false}
+      ANSIBLE_ENABLED:      ${ANSIBLE_ENABLED:-false}
+      NETMIKO_ENABLED:      ${NETMIKO_ENABLED:-false}
+
+    volumes:
+      # Persist enrollment credentials and agent config across restarts
+      - agent-config:/etc/discoverykastle
+      - agent-logs:/var/log/discoverykastle
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    # The agent talks to the server over HTTPS — put it on the same network
+    networks:
+      - default
+
+volumes:
+  agent-config:
+    name: dkastle-agent-config
+  agent-logs:
+    name: dkastle-agent-logs

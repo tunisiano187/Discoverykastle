@@ -153,7 +153,13 @@ class Module(BaseModule):
 
         payload = {"severity": severity, "message": message, "details": details}
 
-        if settings.slack_webhook_url and severity in ("critical", "high"):
+        _SEVERITY_ORDER = {"low": 0, "medium": 1, "high": 2, "critical": 3}
+
+        def _severity_passes(min_sev: str) -> bool:
+            return _SEVERITY_ORDER.get(severity, 0) >= _SEVERITY_ORDER.get(min_sev, 2)
+
+        # ── Slack ──────────────────────────────────────────────────────────
+        if settings.slack_webhook_url and _severity_passes(settings.slack_alert_min_severity):
             try:
                 emoji = ":rotating_light:" if severity == "critical" else ":warning:"
                 async with httpx.AsyncClient(timeout=5) as client:
@@ -164,6 +170,7 @@ class Module(BaseModule):
             except Exception:
                 self.logger.warning("Failed to send Slack notification")
 
+        # ── Generic webhook ────────────────────────────────────────────────
         if settings.generic_webhook_url:
             try:
                 async with httpx.AsyncClient(timeout=5) as client:
@@ -171,6 +178,16 @@ class Module(BaseModule):
             except Exception:
                 self.logger.warning("Failed to send generic webhook notification")
 
+        # ── SMTP email ─────────────────────────────────────────────────────
+        if (
+            settings.smtp_host
+            and settings.smtp_from
+            and settings.smtp_to
+            and _severity_passes(settings.smtp_alert_min_severity)
+        ):
+            await self._send_email(severity, message, details)
+
+        # ── Web Push ───────────────────────────────────────────────────────
         if settings.webpush_enabled:
             try:
                 from server.services.webpush import get_service
@@ -181,3 +198,45 @@ class Module(BaseModule):
                 )
             except Exception:
                 self.logger.warning("Failed to send Web Push notification")
+
+    async def _send_email(
+        self, severity: str, message: str, details: dict[str, Any]
+    ) -> None:
+        """Send an alert email via SMTP (non-blocking — runs in a thread pool)."""
+        import asyncio
+        import smtplib
+        from email.message import EmailMessage
+
+        from server.config import settings
+
+        subject = f"[Discoverykastle] [{severity.upper()}] {message}"
+        body_lines = [
+            f"Severity : {severity.upper()}",
+            f"Message  : {message}",
+            "",
+            "Details",
+            "-------",
+        ]
+        for k, v in details.items():
+            body_lines.append(f"  {k}: {v}")
+
+        msg = EmailMessage()
+        msg["Subject"] = subject
+        msg["From"] = settings.smtp_from
+        recipients = [r.strip() for r in (settings.smtp_to or "").split(",") if r.strip()]
+        msg["To"] = ", ".join(recipients)
+        msg.set_content("\n".join(body_lines))
+
+        def _send() -> None:
+            with smtplib.SMTP(settings.smtp_host, settings.smtp_port, timeout=10) as s:
+                if settings.smtp_tls:
+                    s.starttls()
+                if settings.smtp_user and settings.smtp_password:
+                    s.login(settings.smtp_user, settings.smtp_password)
+                s.send_message(msg)
+
+        try:
+            await asyncio.get_event_loop().run_in_executor(None, _send)
+            self.logger.info("Email alert sent to %s", settings.smtp_to)
+        except Exception as exc:
+            self.logger.warning("Failed to send email alert: %s", exc)
