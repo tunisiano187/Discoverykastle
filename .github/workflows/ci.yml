@@ -48,6 +48,7 @@ jobs:
             tests/test_version.py \
             tests/test_task_engine.py \
             tests/test_alerts_api.py \
+            tests/test_modules_topology_api.py \
             --deselect tests/test_task_engine.py::TestTasksAPI \
             -v --tb=short --junit-xml=test-results.xml
         continue-on-error: true
