@@ -55,6 +55,7 @@ jobs:
             tests/test_modules_topology_api.py \
             tests/test_module_registry.py \
             tests/test_inventory_module.py \
+            tests/test_topology_module.py \
             --deselect tests/test_task_engine.py::TestTasksAPI \
             -v --tb=short --junit-xml=test-results.xml
         continue-on-error: true
