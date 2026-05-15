@@ -1,3 +1,4 @@
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -193,9 +194,7 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
     anthropic_model: str = "claude-haiku-4-5-20251001"
 
-    class Config:
-        env_prefix = "DKASTLE_"
-        env_file = ".env"
+    model_config = ConfigDict(env_prefix="DKASTLE_", env_file=".env")
 
 
 settings = Settings()
