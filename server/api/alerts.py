@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,6 +19,8 @@ router = APIRouter(prefix="/api/v1/alerts", tags=["alerts"])
 
 
 class AlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     severity: str
     alert_type: str
@@ -29,9 +31,6 @@ class AlertOut(BaseModel):
     acknowledged_at: datetime | None
     acknowledged_by: str | None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class AcknowledgeRequest(BaseModel):

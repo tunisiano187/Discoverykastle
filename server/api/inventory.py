@@ -8,7 +8,7 @@ import uuid
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,17 +29,18 @@ router = APIRouter(prefix="/api/v1/inventory", tags=["inventory"])
 # ------------------------------------------------------------------
 
 class ServiceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     port: int
     protocol: str
     service_name: str | None
     version: str | None
 
-    class Config:
-        from_attributes = True
-
 
 class HostSummary(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     fqdn: str | None
     ip_addresses: list[str]
@@ -47,9 +48,6 @@ class HostSummary(BaseModel):
     os_version: str | None
     first_seen: datetime
     last_seen: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class HostDetail(HostSummary):
@@ -62,6 +60,8 @@ class HostDetail(HostSummary):
 
 
 class NetworkOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     cidr: str
     description: str | None
@@ -72,11 +72,10 @@ class NetworkOut(BaseModel):
     ip_class: str = "unknown"
     created_at: datetime
 
-    class Config:
-        from_attributes = True
-
 
 class AuthorizationRequestOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     agent_id: uuid.UUID
     request_type: str
@@ -87,11 +86,10 @@ class AuthorizationRequestOut(BaseModel):
     resolved_by: str | None = None
     expires_at: datetime | None = None
 
-    class Config:
-        from_attributes = True
-
 
 class DeviceOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     ip_address: str
     hostname: str | None
@@ -100,9 +98,6 @@ class DeviceOut(BaseModel):
     firmware_version: str | None
     device_type: str | None
     last_seen: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class DeviceDetail(DeviceOut):

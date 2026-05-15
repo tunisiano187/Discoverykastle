@@ -23,7 +23,7 @@ from datetime import datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -57,6 +57,8 @@ class RegisterResponse(BaseModel):
 
 
 class AgentOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: uuid.UUID
     hostname: str | None
     ip_address: str | None
@@ -65,9 +67,6 @@ class AgentOut(BaseModel):
     authorized_cidrs: list[str]
     last_heartbeat: datetime | None
     created_at: datetime
-
-    class Config:
-        from_attributes = True
 
 
 class HeartbeatResponse(BaseModel):
