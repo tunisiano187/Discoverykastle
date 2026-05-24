@@ -32,12 +32,54 @@ from server.api.data import router as data_router
 from server.api.ws import router as ws_router
 from server.api.tasks import router as tasks_router
 from server.api.vulns import router as vulns_router
+from server.api.users import router as users_router
+from server.api.audit_log import router as audit_log_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
 # Configures console + rotating JSON file + Graylog (if configured).
 setup_logging()
 logger = logging.getLogger("dkastle.server")
+
+
+async def _bootstrap_admin() -> None:
+    """Create the admin User row from settings if no users exist yet."""
+    from sqlalchemy import select
+
+    from server.config import settings
+    from server.database import AsyncSessionLocal
+    from server.models.user import User
+    from server.services.auth import hash_password
+
+    if not settings.admin_password:
+        return
+
+    async with AsyncSessionLocal() as db:
+        count_result = await db.execute(select(User))
+        if count_result.first() is not None:
+            return  # users already bootstrapped
+
+        pw = settings.admin_password
+        # Hash if stored as plain text (dev convenience)
+        try:
+            is_hashed = pw.startswith("$2b$") or pw.startswith("$pbkdf2")
+        except Exception:
+            is_hashed = False
+
+        pw_hash = pw if is_hashed else hash_password(pw)
+        admin = User(
+            username=settings.admin_username,
+            password_hash=pw_hash,
+            role="admin",
+            is_active=True,
+        )
+        db.add(admin)
+        await db.commit()
+        logger.info(
+            "Bootstrapped admin user '%s' into the users table.",
+            settings.admin_username,
+            extra={"event": "admin_bootstrapped"},
+        )
 
 
 @asynccontextmanager
@@ -48,6 +90,9 @@ async def lifespan(app: FastAPI):
 
     await init_db()
     logger.info("Database initialized.", extra={"event": "db_init"})
+
+    await _bootstrap_admin()
+    logger.info("Admin user bootstrapped.", extra={"event": "admin_bootstrap"})
 
     from server.services.ca import ca
     from server.config import settings
@@ -128,6 +173,8 @@ app.include_router(data_router)
 app.include_router(ws_router)
 app.include_router(tasks_router)
 app.include_router(vulns_router)
+app.include_router(users_router)
+app.include_router(audit_log_router)
 
 # Serve the React SPA — static assets first, then index.html catch-all
 _ui_dir = Path(__file__).parent / "static" / "ui"

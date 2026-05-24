@@ -378,7 +378,7 @@ class TestDashboardWSAuth:
     def test_valid_token_sends_initial_snapshot(self) -> None:
         """Valid JWT → WS accepted + connected_agents snapshot sent."""
         app = _make_app()
-        with patch("server.services.auth.decode_token", return_value="admin"):
+        with patch("server.services.auth.decode_token", return_value=("admin", "admin")):
             with TestClient(app) as client:
                 with client.websocket_connect(
                     "/api/v1/ws/dashboard?token=valid-jwt"

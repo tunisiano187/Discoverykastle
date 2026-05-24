@@ -469,7 +469,7 @@ async def dashboard_ws(
 
     def _authenticate(raw_token: str) -> bool:
         try:
-            decode_token(raw_token.strip(), _settings.secret_key)
+            _username, _role = decode_token(raw_token.strip(), _settings.secret_key)
             return True
         except Exception:
             return False
