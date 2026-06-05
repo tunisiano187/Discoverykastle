@@ -34,6 +34,7 @@ from server.api.tasks import router as tasks_router
 from server.api.vulns import router as vulns_router
 from server.api.users import router as users_router
 from server.api.audit_log import router as audit_log_router
+from server.api.vault import router as vault_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -175,6 +176,7 @@ app.include_router(tasks_router)
 app.include_router(vulns_router)
 app.include_router(users_router)
 app.include_router(audit_log_router)
+app.include_router(vault_router)
 
 # Serve the React SPA — static assets first, then index.html catch-all
 _ui_dir = Path(__file__).parent / "static" / "ui"
