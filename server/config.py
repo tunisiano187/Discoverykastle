@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     vault_key: str = "changeme-base64-32-bytes"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    # Login brute-force protection
+    login_rate_limit_attempts: int = 5   # max failures before 429
+    login_rate_limit_window: int = 300   # sliding window in seconds
 
     # Operator credentials (set during first-run setup)
     admin_username: str = "admin"
