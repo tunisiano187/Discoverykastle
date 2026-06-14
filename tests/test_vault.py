@@ -159,7 +159,7 @@ class TestVaultAPIRoles:
             ms.secret_key = _SECRET
             app = _make_app()
             client = TestClient(app)
-            resp = client.get("/credentials", headers=_auth("viewer"))
+            resp = client.get("/api/v1/vault/credentials", headers=_auth("viewer"))
             assert resp.status_code == 403
 
     def test_analyst_cannot_list(self) -> None:
@@ -167,7 +167,7 @@ class TestVaultAPIRoles:
             ms.secret_key = _SECRET
             app = _make_app()
             client = TestClient(app)
-            resp = client.get("/credentials", headers=_auth("analyst"))
+            resp = client.get("/api/v1/vault/credentials", headers=_auth("analyst"))
             assert resp.status_code == 403
 
     def test_operator_can_list(self) -> None:
@@ -185,7 +185,7 @@ class TestVaultAPIRoles:
             ms.secret_key = _SECRET
             app = _make_app()
             client = TestClient(app)
-            resp = client.get("/credentials", headers=_auth("operator"))
+            resp = client.get("/api/v1/vault/credentials", headers=_auth("operator"))
             assert resp.status_code == 200
 
     def test_admin_can_list(self) -> None:
@@ -203,7 +203,7 @@ class TestVaultAPIRoles:
             ms.secret_key = _SECRET
             app = _make_app()
             client = TestClient(app)
-            resp = client.get("/credentials", headers=_auth("admin"))
+            resp = client.get("/api/v1/vault/credentials", headers=_auth("admin"))
             assert resp.status_code == 200
 
     def test_analyst_cannot_create(self) -> None:
@@ -212,7 +212,7 @@ class TestVaultAPIRoles:
             app = _make_app()
             client = TestClient(app)
             resp = client.post(
-                "/credentials",
+                "/api/v1/vault/credentials",
                 json={"device_id": "10.0.0.1", "credential_type": "ssh", "secret": "pass"},
                 headers=_auth("analyst"),
             )
@@ -221,7 +221,7 @@ class TestVaultAPIRoles:
     def test_unauthenticated_rejected(self) -> None:
         app = _make_app()
         client = TestClient(app)
-        resp = client.get("/credentials")
+        resp = client.get("/api/v1/vault/credentials")
         assert resp.status_code == 401
 
 
@@ -247,7 +247,7 @@ class TestVaultAPICRUD:
         ):
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
-            resp = client.get("/credentials", headers=_auth("operator"))
+            resp = client.get("/api/v1/vault/credentials", headers=_auth("operator"))
 
         assert resp.status_code == 200
         items = resp.json()
@@ -280,7 +280,7 @@ class TestVaultAPICRUD:
         ):
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
-            resp = client.get(f"/credentials/{cred_id}", headers=_auth("operator"))
+            resp = client.get(f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator"))
 
         assert resp.status_code == 200
         body = resp.json()
@@ -302,7 +302,7 @@ class TestVaultAPICRUD:
         ):
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
-            resp = client.get(f"/credentials/{uuid.uuid4()}", headers=_auth("operator"))
+            resp = client.get(f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("operator"))
 
         assert resp.status_code == 404
 
@@ -341,7 +341,7 @@ class TestVaultAPICRUD:
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
             resp = client.post(
-                "/credentials",
+                "/api/v1/vault/credentials",
                 json={
                     "device_id": "10.0.0.1",
                     "credential_type": "ssh",
@@ -364,7 +364,7 @@ class TestVaultAPICRUD:
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
             resp = client.post(
-                "/credentials",
+                "/api/v1/vault/credentials",
                 json={"device_id": "10.0.0.1", "credential_type": "telnet", "secret": "x"},
                 headers=_auth("operator"),
             )
@@ -375,7 +375,7 @@ class TestVaultAPICRUD:
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
             resp = client.post(
-                "/credentials",
+                "/api/v1/vault/credentials",
                 json={"device_id": "10.0.0.1", "credential_type": "ssh", "secret": "   "},
                 headers=_auth("operator"),
             )
@@ -400,7 +400,7 @@ class TestVaultAPICRUD:
         ):
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
-            resp = client.delete(f"/credentials/{cred_id}", headers=_auth("operator"))
+            resp = client.delete(f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator"))
 
         assert resp.status_code == 204
 
@@ -418,7 +418,7 @@ class TestVaultAPICRUD:
         ):
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
-            resp = client.delete(f"/credentials/{uuid.uuid4()}", headers=_auth("admin"))
+            resp = client.delete(f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("admin"))
 
         assert resp.status_code == 404
 
@@ -450,7 +450,7 @@ class TestVaultAPICRUD:
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
             resp = client.patch(
-                f"/credentials/{cred_id}",
+                f"/api/v1/vault/credentials/{cred_id}",
                 json={"label": "new-label", "secret": "new-pass"},
                 headers=_auth("operator"),
             )
@@ -473,6 +473,6 @@ class TestVaultAPICRUD:
             ms.secret_key = _SECRET
             client = TestClient(_make_app())
             resp = client.get(
-                "/credentials?device_id=10.0.0.1", headers=_auth("operator")
+                "/api/v1/vault/credentials?device_id=10.0.0.1", headers=_auth("operator")
             )
         assert resp.status_code == 200
