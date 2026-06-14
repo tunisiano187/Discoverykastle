@@ -1,30 +1,31 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-05-24
+Last updated: 2026-06-14
 
 ## Currently open PR
-- PR #16: feat(auth): RBAC multi-user system + audit log API — in progress (this session)
-  - Notes: implementing viewer/analyst/operator/admin roles, user CRUD API, audit log read endpoint
+- PR #18: feat(vault): AES-256-GCM credential vault API — in progress (this session)
+  - Adds server/services/vault.py, server/models/credential.py, server/api/vault.py
+  - Alembic migration 0003_credentials_table.py
+  - 20 tests in tests/test_vault.py covering encryption, role enforcement, CRUD
 
 ## Recently merged
+- PR #16: feat(auth): RBAC multi-user system + audit log API — merged 2026-05-28
 - PR #15: feat: add dkctl admin CLI and agent Docker support — merged 2026-05-15
 - PR #14: feat: add comprehensive test suite + GitHub Actions CI — merged 2026-05-09
 - PR #13: feat: Ansible agent collector, Netmiko device collector, Devices SPA page — merged 2026-05-09
 - PR #12: feat: CVE scanner agent collector + Networks/Topology SPA pages — merged 2026-05-03
-- PR #11: feat: nmap collector, Alembic migrations, LDAP/AD module — merged 2026-05-03
 
 ## Todo (prioritized — pick from the top)
 
-1. [HIGH] Credential vault API
-   - Described in docs/security.md: AES-256-GCM encrypted storage for device credentials
-   - POST/GET/DELETE /api/v1/vault/credentials
-   - Ephemeral task-scoped credential delivery over WebSocket
-   - Master key sourced from DKASTLE_VAULT_KEY env var
-
-2. [HIGH] Rate limiting on /api/v1/auth/login
+1. [HIGH] Rate limiting on /api/v1/auth/login
    - Prevent brute-force attacks (threshold: 5 failed attempts in 5 minutes)
-   - Block IP temporarily or add CAPTCHA
-   - Use Redis-backed counter or slowapi
+   - Block IP temporarily via Redis-backed counter (slowapi or manual)
+   - Described in docs/security.md hardening checklist
+
+2. [MEDIUM] Ephemeral credential delivery over WebSocket
+   - Server retrieves vault credential for a device task and generates a
+     task-scoped single-use token, sent only via mTLS WebSocket to the agent
+   - Needs vault PR merged first
 
 3. [MEDIUM] Documentation generator service
    - Background service generating Markdown from collected data
@@ -34,7 +35,7 @@ Last updated: 2026-05-24
 4. [MEDIUM] Agent auto-deployment
    - Deploy agent automatically on newly discovered hosts (with operator approval)
    - SSH-based deployment for Linux, WinRM/PSRemoting for Windows
-   - Very high complexity — needs credential vault first
+   - Very high complexity — needs credential vault + ephemeral delivery first
 
 5. [LOW] Integration tests end-to-end
    - Full coverage with a test PostgreSQL database
@@ -45,10 +46,11 @@ Last updated: 2026-05-24
    - Very high complexity
 
 ## Done
-- RBAC multi-user system (viewer/analyst/operator/admin roles) — PR #16 (this session)
-- Audit log read API (GET /api/v1/audit-log, admin only) — PR #16 (this session)
-- User management CRUD API (/api/v1/users, admin only) — PR #16 (this session)
-- Alembic migration 0002 for users table — PR #16 (this session)
+- Credential vault API (AES-256-GCM) — PR #18 (this session)
+- RBAC multi-user system (viewer/analyst/operator/admin roles) — PR #16
+- Audit log read API (GET /api/v1/audit-log, admin only) — PR #16
+- User management CRUD API (/api/v1/users, admin only) — PR #16
+- Alembic migration 0002 for users table — PR #16
 - Admin CLI (dkctl) + agent Docker image — PR #15
 - Test suite (151+ tests) + GitHub Actions CI — PR #14
 - Ansible agent collector + Netmiko + Devices SPA — PR #13

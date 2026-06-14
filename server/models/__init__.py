@@ -4,6 +4,7 @@ from server.models.device import NetworkDevice
 from server.models.vulnerability import Vulnerability
 from server.models.alert import Alert, AlertSeverity, AlertType
 from server.models.agent import Agent, AuditLog, AuthorizationRequest
+from server.models.credential import Credential
 
 __all__ = [
     "Host", "Service", "Package",
@@ -12,4 +13,5 @@ __all__ = [
     "Vulnerability",
     "Alert", "AlertSeverity", "AlertType",
     "Agent", "AuditLog", "AuthorizationRequest",
+    "Credential",
 ]

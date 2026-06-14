@@ -32,7 +32,8 @@ jobs:
             fastapi>=0.111 pydantic>=2.7 "pydantic-settings>=2.3" \
             "sqlalchemy[asyncio]>=2.0" pyyaml>=6.0 \
             jinja2>=3.1 \
-            "passlib>=1.7" "python-jose>=3.3" "ecdsa>=0.18" "rsa>=4.0"
+            "passlib>=1.7" "python-jose>=3.3" "ecdsa>=0.18" "rsa>=4.0" \
+            "cryptography>=42"
 
       - name: Lint (ruff)
         run: ruff check .
@@ -50,6 +51,7 @@ jobs:
             tests/test_data_ingestion.py \
             tests/test_version.py \
             tests/test_rbac.py \
+            tests/test_vault.py \
             -v --tb=short --junit-xml=test-results.xml
         continue-on-error: true
 
