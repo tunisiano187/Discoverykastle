@@ -5,8 +5,9 @@ VaultService tests: use pytest.importorskip so they skip gracefully when the
 cryptography package is unavailable (broken install), but pass in CI where
 a proper wheel is installed.
 
-API tests: mock DB + vault using the same pattern as test_inventory.py.
-No real database or encryption required.
+API tests: use app.dependency_overrides[get_db] (the correct FastAPI pattern)
+rather than patch("server.api.vault.get_db") — FastAPI stores dependency
+references inside Depends() objects and does NOT re-lookup module attributes.
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from server.database import get_db
 from server.models.credential import CREDENTIAL_TYPES, Credential
 from server.api.vault import router
 
@@ -61,6 +63,24 @@ def _make_cred(**kwargs) -> MagicMock:
     c.created_at = kwargs.get("created_at", datetime(2026, 1, 1))
     c.updated_at = kwargs.get("updated_at", datetime(2026, 1, 1))
     return c
+
+
+def _make_fake_db(scalars=None, scalar_one=None):
+    """Return an async generator override for get_db."""
+    async def _fake_db():
+        db = AsyncMock()
+        res = MagicMock()
+        if scalars is not None:
+            res.scalars.return_value = iter(scalars)
+        if scalar_one is not None:
+            res.scalar_one_or_none.return_value = scalar_one
+        db.execute = AsyncMock(return_value=res)
+        db.add = MagicMock()
+        db.commit = AsyncMock()
+        db.delete = AsyncMock()
+        yield db
+
+    return _fake_db
 
 
 # ---------------------------------------------------------------------------
@@ -144,16 +164,6 @@ class TestCredentialTypes:
 
 
 class TestVaultAPIRoles:
-    def setup_method(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            self.app = _make_app()
-
-    def _client(self) -> TestClient:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            return TestClient(self.app)
-
     def test_viewer_cannot_list(self) -> None:
         with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
@@ -171,37 +181,19 @@ class TestVaultAPIRoles:
             assert resp.status_code == 403
 
     def test_operator_can_list(self) -> None:
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalars.return_value = iter([])
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
             app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalars=[])
             client = TestClient(app)
             resp = client.get("/api/v1/vault/credentials", headers=_auth("operator"))
             assert resp.status_code == 200
 
     def test_admin_can_list(self) -> None:
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalars.return_value = iter([])
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
             app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalars=[])
             client = TestClient(app)
             resp = client.get("/api/v1/vault/credentials", headers=_auth("admin"))
             assert resp.status_code == 200
@@ -234,31 +226,21 @@ class TestVaultAPICRUD:
     def test_list_returns_metadata_only(self) -> None:
         creds = [_make_cred(device_id="10.0.0.1"), _make_cred(device_id="10.0.0.2")]
 
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalars.return_value = iter(creds)
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
+            app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalars=creds)
+            client = TestClient(app)
             resp = client.get("/api/v1/vault/credentials", headers=_auth("operator"))
 
         assert resp.status_code == 200
         items = resp.json()
         assert len(items) == 2
         for item in items:
-            # These fields must NEVER appear in the response
             assert "secret" not in item
             assert "secret_enc" not in item
             assert "username_enc" not in item
             assert "notes_enc" not in item
-            # These metadata fields must be present
             assert "device_id" in item
             assert "credential_type" in item
             assert "has_username" in item
@@ -267,20 +249,14 @@ class TestVaultAPICRUD:
         cred_id = uuid.uuid4()
         cred = _make_cred(id=cred_id, device_id="10.0.0.99")
 
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalar_one_or_none.return_value = cred
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
-            resp = client.get(f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator"))
+            app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=cred)
+            client = TestClient(app)
+            resp = client.get(
+                f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator")
+            )
 
         assert resp.status_code == 200
         body = resp.json()
@@ -289,28 +265,21 @@ class TestVaultAPICRUD:
         assert "secret_enc" not in body
 
     def test_get_nonexistent_returns_404(self) -> None:
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalar_one_or_none.return_value = None
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
-            resp = client.get(f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("operator"))
+            app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=None)
+            client = TestClient(app)
+            resp = client.get(
+                f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("operator")
+            )
 
         assert resp.status_code == 404
 
     def test_create_encrypts_secret(self) -> None:
-        """Verify that create calls vault.encrypt and never stores plaintext."""
         cred_id = uuid.uuid4()
 
-        async def fake_db():
+        async def _fake_db_create():
             db = AsyncMock()
             db.add = MagicMock()
             db.commit = AsyncMock()
@@ -335,11 +304,12 @@ class TestVaultAPICRUD:
 
         with (
             patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
             patch("server.api.vault.get_vault", return_value=mock_vault),
         ):
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
+            app = _make_app()
+            app.dependency_overrides[get_db] = _fake_db_create
+            client = TestClient(app)
             resp = client.post(
                 "/api/v1/vault/credentials",
                 json={
@@ -352,7 +322,6 @@ class TestVaultAPICRUD:
             )
 
         assert resp.status_code == 201
-        # vault.encrypt must have been called (at least once for secret)
         assert mock_vault.encrypt.called
         body = resp.json()
         assert "secret" not in body
@@ -362,7 +331,8 @@ class TestVaultAPICRUD:
     def test_create_invalid_type_rejected(self) -> None:
         with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
+            app = _make_app()
+            client = TestClient(app)
             resp = client.post(
                 "/api/v1/vault/credentials",
                 json={"device_id": "10.0.0.1", "credential_type": "telnet", "secret": "x"},
@@ -373,7 +343,8 @@ class TestVaultAPICRUD:
     def test_create_empty_secret_rejected(self) -> None:
         with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
+            app = _make_app()
+            client = TestClient(app)
             resp = client.post(
                 "/api/v1/vault/credentials",
                 json={"device_id": "10.0.0.1", "credential_type": "ssh", "secret": "   "},
@@ -385,40 +356,26 @@ class TestVaultAPICRUD:
         cred_id = uuid.uuid4()
         cred = _make_cred(id=cred_id)
 
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalar_one_or_none.return_value = cred
-            db.execute = AsyncMock(return_value=res)
-            db.delete = AsyncMock()
-            db.commit = AsyncMock()
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
-            resp = client.delete(f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator"))
+            app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=cred)
+            client = TestClient(app)
+            resp = client.delete(
+                f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator")
+            )
 
         assert resp.status_code == 204
 
     def test_delete_nonexistent_returns_404(self) -> None:
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalar_one_or_none.return_value = None
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
-            resp = client.delete(f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("admin"))
+            app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=None)
+            client = TestClient(app)
+            resp = client.delete(
+                f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("admin")
+            )
 
         assert resp.status_code == 404
 
@@ -426,7 +383,7 @@ class TestVaultAPICRUD:
         cred_id = uuid.uuid4()
         cred = _make_cred(id=cred_id, label="old-label")
 
-        async def fake_db():
+        async def _fake_db_patch():
             db = AsyncMock()
             res = MagicMock()
             res.scalar_one_or_none.return_value = cred
@@ -444,11 +401,12 @@ class TestVaultAPICRUD:
 
         with (
             patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
             patch("server.api.vault.get_vault", return_value=mock_vault),
         ):
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
+            app = _make_app()
+            app.dependency_overrides[get_db] = _fake_db_patch
+            client = TestClient(app)
             resp = client.patch(
                 f"/api/v1/vault/credentials/{cred_id}",
                 json={"label": "new-label", "secret": "new-pass"},
@@ -459,19 +417,11 @@ class TestVaultAPICRUD:
         mock_vault.encrypt.assert_called_once_with("new-pass")
 
     def test_filter_by_device_id(self) -> None:
-        async def fake_db():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalars.return_value = iter([])
-            db.execute = AsyncMock(return_value=res)
-            yield db
-
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_db", fake_db),
-        ):
+        with patch("server.config.settings") as ms:
             ms.secret_key = _SECRET
-            client = TestClient(_make_app())
+            app = _make_app()
+            app.dependency_overrides[get_db] = _make_fake_db(scalars=[])
+            client = TestClient(app)
             resp = client.get(
                 "/api/v1/vault/credentials?device_id=10.0.0.1", headers=_auth("operator")
             )
