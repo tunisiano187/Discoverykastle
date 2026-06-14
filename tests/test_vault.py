@@ -72,8 +72,7 @@ def _make_fake_db(scalars=None, scalar_one=None):
         res = MagicMock()
         if scalars is not None:
             res.scalars.return_value = iter(scalars)
-        if scalar_one is not None:
-            res.scalar_one_or_none.return_value = scalar_one
+        res.scalar_one_or_none.return_value = scalar_one  # always set, even when None
         db.execute = AsyncMock(return_value=res)
         db.add = MagicMock()
         db.commit = AsyncMock()
