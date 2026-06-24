@@ -1,11 +1,12 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-06-07
+Last updated: 2026-06-24
 
 ## Currently open PR
-- Branch `claude/initial-project-documentation-ogkzS` pushed — PR pending creation
+- PR #21 on branch `claude/vault-security-fix` — GitGuardian fix + Credential export
 
 ## Recently merged
+- PR #19: feat: credential vault, rate limiting, docs generator, agent auto-deploy, 346 tests — merged 2026-06-07
 - PR #16: feat(auth): RBAC multi-user system + audit log API — merged
 - PR #15: feat: add dkctl admin CLI and agent Docker support — merged 2026-05-15
 - PR #14: feat: add comprehensive test suite + GitHub Actions CI — merged 2026-05-09
