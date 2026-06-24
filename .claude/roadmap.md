@@ -3,9 +3,10 @@
 Last updated: 2026-06-24
 
 ## Currently open PR
-- PR #21 on branch `claude/vault-security-fix` — GitGuardian fix + Credential export
+- PR on branch `claude/integration-tests-hy2ann` — end-to-end integration tests
 
 ## Recently merged
+- PR #21: fix: GitGuardian false positives + Credential model export — merged 2026-06-24
 - PR #19: feat: credential vault, rate limiting, docs generator, agent auto-deploy, 346 tests — merged 2026-06-07
 - PR #16: feat(auth): RBAC multi-user system + audit log API — merged
 - PR #15: feat: add dkctl admin CLI and agent Docker support — merged 2026-05-15
@@ -16,7 +17,7 @@ Last updated: 2026-06-24
 
 ## Todo (prioritized — pick from the top)
 
-1. [LOW] Integration tests end-to-end
+1. [IN PROGRESS] Integration tests end-to-end
    - Full coverage with a test PostgreSQL database
    - Test complete flows: enrollment → scan → host discovery → alert
    - Requires asyncpg + real DB fixture (e.g. pytest-asyncio + testcontainers)
