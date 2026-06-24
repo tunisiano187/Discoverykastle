@@ -1,3 +1,4 @@
+from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 from typing import Optional
 
@@ -14,6 +15,9 @@ class Settings(BaseSettings):
     vault_key: str = "changeme-base64-32-bytes"
     jwt_algorithm: str = "HS256"
     jwt_expire_minutes: int = 60
+    # Login brute-force protection
+    login_rate_limit_attempts: int = 5   # max failures before 429
+    login_rate_limit_window: int = 300   # sliding window in seconds
 
     # Operator credentials (set during first-run setup)
     admin_username: str = "admin"
@@ -193,9 +197,7 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = None
     anthropic_model: str = "claude-haiku-4-5-20251001"
 
-    class Config:
-        env_prefix = "DKASTLE_"
-        env_file = ".env"
+    model_config = ConfigDict(env_prefix="DKASTLE_", env_file=".env")
 
 
 settings = Settings()

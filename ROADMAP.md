@@ -147,8 +147,11 @@
 | Docker Compose (serveur + PostgreSQL + Redis) | ✅ Done | `docker-compose.yml` |
 | Script d'installation one-liner | ✅ Done | `install.sh` |
 | Tests (auth, CA, data ingestion, tasks, vulns, WS) | ✅ Done | `tests/` — pytest |
-| Tests unitaires (ip_utils, collectors, LDAP, inventory, notifications) | ✅ Done | 151+ tests, 0 failures |
+| Tests unitaires (ip_utils, collectors, LDAP, inventory, notifications, CLI) | ✅ Done | 180+ tests, 0 failures |
 | GitHub Actions CI + auto-issue | ✅ Done | `.github/workflows/ci.yml` — lint + pytest, crée issue si échec |
+| Package pip agent (`dkagent`) | ✅ Done | `agent/pyproject.toml` — `pip install discoverykastle-agent` |
+| Image Docker agent (multi-arch) | ✅ Done | `agent/Dockerfile` + `agent-image.yml` → ghcr.io (amd64 + arm64) |
+| CLI admin `dkctl` | ✅ Done | `server/cli/main.py` — gestion via REST API, rapport Markdown |
 
 ---
 
@@ -174,18 +177,18 @@
 | ~~Page Devices dans le SPA~~ | ✅ `ui/src/pages/Devices.tsx` | |
 | ~~Intégration Netmiko~~ | ✅ `agent/collectors/netmiko_collector.py` | |
 | ~~Notifications email/Slack~~ | ✅ SMTP + Slack webhook + generic webhook dans `alerts/module.py` | |
-| **Documentation de déploiement** | Mise à jour docs/deployment.md avec nouveaux modules | Faible |
+| ~~Documentation de déploiement~~ | ✅ `docs/deployment.md` mis à jour avec tous les modules | |
 
 ### Priorité basse
 
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
 | **Agent auto-déploiement** | Déploiement automatique sur hôtes découverts (avec autorisation) | Très haute |
-| **Générateur de documentation** | Export rapport PDF/Markdown de l'infrastructure | Haute |
+| ~~Générateur de documentation~~ | ✅ `dkctl report` — export Markdown complet de l'infrastructure | |
 | **Support multitenancy** | Plusieurs équipes/projets dans la même instance | Très haute |
 | **Tests d'intégration end-to-end** | Couverture complète avec DB de test | Haute |
-| **Package pip + image Docker agent** | Distribution simplifiée | Faible |
-| **Interface CLI admin** | Gestion sans dashboard web | Moyenne |
+| ~~Package pip + image Docker agent~~ | ✅ `agent/pyproject.toml` + `agent/Dockerfile` + ghcr.io multi-arch | |
+| ~~Interface CLI admin~~ | ✅ `dkctl` — `server/cli/main.py` — gestion complète sans dashboard | |
 
 ---
 
