@@ -212,7 +212,7 @@ class TestVaultAPI:
                     json={
                         "label": "test-ssh",
                         "credential_type": "ssh",
-                        "data": {"user": "alice", "password": "secret"},
+                        "data": {"user": "alice", "ssh_key": "mock-key-data"},
                     },
                 )
         assert resp.status_code == 201
@@ -361,7 +361,7 @@ class TestVaultAPI:
         app.dependency_overrides[_require_operator] = lambda: "operator1"
         app.include_router(router)
 
-        with patch("server.api.vault.decrypt", return_value={"user": "alice", "password": "s3cr3t"}):
+        with patch("server.api.vault.decrypt", return_value={"user": "alice", "ssh_key": "mock-key-data"}):
             async with httpx.AsyncClient(
                 transport=httpx.ASGITransport(app=app), base_url="http://test"
             ) as client:
@@ -369,7 +369,7 @@ class TestVaultAPI:
         assert resp.status_code == 200
         body = resp.json()
         assert body["data"]["user"] == "alice"
-        assert body["data"]["password"] == "s3cr3t"
+        assert body["data"]["ssh_key"] == "mock-key-data"
 
     @pytest.mark.asyncio
     async def test_decrypt_credential_404_when_not_found(self) -> None:
@@ -538,7 +538,7 @@ class TestVaultAPI:
             ) as client:
                 resp = await client.patch(
                     f"/api/v1/vault/credentials/{_FAKE_UUID}",
-                    json={"data": {"user": "bob", "password": "new-pw"}},
+                    json={"data": {"user": "bob", "ssh_key": "mock-updated-data"}},
                 )
         mock_enc.assert_called_once()
         assert resp.status_code == 200
