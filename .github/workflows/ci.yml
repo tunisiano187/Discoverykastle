@@ -157,7 +157,7 @@ jobs:
         image: postgres:15
         env:
           POSTGRES_USER: dkastle
-          POSTGRES_PASSWORD: dkastle
+          POSTGRES_HOST_AUTH_METHOD: trust
           POSTGRES_DB: discoverykastle_test
         ports:
           - 5432:5432
@@ -168,9 +168,10 @@ jobs:
           --health-retries 5
 
     env:
-      INTEGRATION_TEST_DB_URL: postgresql+asyncpg://dkastle:dkastle@localhost:5432/discoverykastle_test
-      DKASTLE_DATABASE_URL: postgresql+asyncpg://dkastle:dkastle@localhost:5432/discoverykastle_test
+      INTEGRATION_TEST_DB_URL: postgresql+asyncpg://dkastle@localhost:5432/discoverykastle_test
+      DKASTLE_DATABASE_URL: postgresql+asyncpg://dkastle@localhost:5432/discoverykastle_test
       DKASTLE_SECRET_KEY: ci-integration-test-secret-key-32ch!
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - uses: actions/checkout@v4

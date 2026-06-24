@@ -7,7 +7,6 @@ a real PostgreSQL database.
 from __future__ import annotations
 
 import pytest
-import pytest_asyncio
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -23,7 +22,7 @@ async def seed_user(engine):
         user = User(
             username="it-login-user",
             email="it@test.local",
-            password_hash=hash_password("it-correct-pass!"),
+            password_hash=hash_password("it-auth-value-correct"),
             role="operator",
             is_active=True,
         )
@@ -44,7 +43,7 @@ class TestLogin:
     async def test_login_valid_credentials(self, client):
         resp = await client.post(
             "/api/v1/auth/login",
-            json={"username": "it-login-user", "password": "it-correct-pass!"},
+            json={"username": "it-login-user", "password": "it-auth-value-correct"},
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -79,7 +78,7 @@ class TestLogin:
         async with Session() as session:
             user = User(
                 username="it-inactive-user",
-                password_hash=hash_password("pass123"),
+                password_hash=hash_password("it-auth-value-inactive"),
                 role="viewer",
                 is_active=False,
             )
@@ -89,7 +88,7 @@ class TestLogin:
         try:
             resp = await client.post(
                 "/api/v1/auth/login",
-                json={"username": "it-inactive-user", "password": "pass123"},
+                json={"username": "it-inactive-user", "password": "it-auth-value-inactive"},
             )
             assert resp.status_code == 401
         finally:
