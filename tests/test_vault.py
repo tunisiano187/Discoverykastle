@@ -450,3 +450,123 @@ class TestVaultAPI:
             ) as client:
                 resp = await client.post(f"/api/v1/vault/credentials/{_FAKE_UUID}/decrypt")
         assert resp.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_update_credential_returns_200(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        async def _refresh_side_effect(obj):
+            obj.label = "updated-label"
+            obj.updated_by = "operator1"
+
+        db.refresh = AsyncMock(side_effect=_refresh_side_effect)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.patch(
+                f"/api/v1/vault/credentials/{_FAKE_UUID}",
+                json={"label": "updated-label"},
+            )
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_update_credential_404_when_not_found(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        db = _make_db(None)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.patch(
+                f"/api/v1/vault/credentials/{_FAKE_UUID}",
+                json={"label": "new"},
+            )
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_credential_reencrypts_when_data_provided(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+        db.refresh = AsyncMock(side_effect=lambda obj: None)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        with patch("server.api.vault.encrypt", return_value="NEWCIPHERTEXT==") as mock_enc:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.patch(
+                    f"/api/v1/vault/credentials/{_FAKE_UUID}",
+                    json={"data": {"user": "bob", "password": "new-pw"}},
+                )
+        mock_enc.assert_called_once()
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_list_credentials_with_query_params(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get(
+                "/api/v1/vault/credentials",
+                params={"credential_type": "ssh", "skip": 0, "limit": 10},
+            )
+        assert resp.status_code == 200

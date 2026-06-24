@@ -213,7 +213,25 @@ async def service_worker() -> FileResponse:
 
 @app.get("/health")
 async def health() -> dict:
+    import os
+
+    checks: dict[str, str] = {}
+
+    checks["vault_key"] = "configured" if os.environ.get("DKASTLE_VAULT_KEY") else "not_configured"
+
+    try:
+        import redis.asyncio as aioredis
+        from server.config import settings as _s
+        _rc = aioredis.from_url(_s.redis_url, socket_connect_timeout=1)
+        await _rc.ping()
+        await _rc.aclose()
+        checks["redis"] = "ok"
+    except Exception:
+        checks["redis"] = "unavailable"
+
+    degraded = any(v in ("unavailable", "error") for v in checks.values())
     return {
-        "status": "ok",
+        "status": "degraded" if degraded else "ok",
         "modules": len(registry.list_modules()),
+        "checks": checks,
     }
