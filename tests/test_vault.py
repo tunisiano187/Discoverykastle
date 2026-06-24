@@ -25,8 +25,8 @@ from server.database import get_db
 from server.models.credential import CREDENTIAL_TYPES, Credential
 from server.api.vault import router
 
-_TEST_VAULT_KEY = base64.b64encode(b"A" * 32).decode()
-_SECRET = "vault-test-jwt-secret"
+_TEST_VAULT_KEY = base64.b64encode(b"A" * 32).decode()  # gitguardian:ignore
+_SECRET = "vault-test-jwt-secret"  # gitguardian:ignore
 
 
 # ---------------------------------------------------------------------------
