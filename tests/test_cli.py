@@ -196,3 +196,106 @@ class TestMainConfigValidation:
              patch("server.cli.main._load_file_config", return_value={}), \
              pytest.raises(SystemExit):
             main()
+
+
+# ---------------------------------------------------------------------------
+# Report generator
+# ---------------------------------------------------------------------------
+
+class TestReportGenerator:
+    def _make_client(self, data_map: dict):
+        from server.cli.main import APIClient
+        client = APIClient("https://dk.example.com", "tok", verify_tls=False)
+
+        def fake_get(path: str):
+            for key, val in data_map.items():
+                if key in path:
+                    return val
+            return []
+
+        client.get = fake_get  # type: ignore[method-assign]
+        return client
+
+    def _run_report(self, client, **kwargs):
+        import argparse
+        from server.cli.main import cmd_report
+        args = argparse.Namespace(output=None, limit=200, **kwargs)
+        return cmd_report(client, args)
+
+    def test_report_contains_section_headers(self, capsys) -> None:
+        client = self._make_client({
+            "/api/v1/version": {"version": "0.1.0"},
+            "hosts": [{"ip_address": "10.0.0.1", "fqdn": "web01", "os": "Ubuntu", "last_seen": "2024-01-15"}],
+            "networks": [{"cidr": "10.0.0.0/8", "ip_class": "private", "domain_name": None, "scan_authorized": True}],
+            "vulns/summary": {"total": 3, "by_severity": {"critical": 1, "high": 2, "medium": 0, "low": 0}},
+            "vulns": [],
+            "agents": [],
+            "alerts": [],
+            "devices": [],
+        })
+        self._run_report(client)
+        out, _ = capsys.readouterr()
+        assert "# Infrastructure Report" in out
+        assert "## Networks" in out
+        assert "## Hosts" in out
+        assert "## Critical & High Vulnerabilities" in out
+        assert "## Agents" in out
+
+    def test_report_summary_counts(self, capsys) -> None:
+        client = self._make_client({
+            "/api/v1/version": {"version": "0.1.0"},
+            "hosts": [{"ip_address": "10.0.0.1"}, {"ip_address": "10.0.0.2"}],
+            "networks": [{"cidr": "10.0.0.0/8", "ip_class": "private"}],
+            "vulns/summary": {"total": 5, "by_severity": {"critical": 2, "high": 3}},
+            "vulns": [],
+            "agents": [{"status": "online"}, {"status": "offline"}],
+            "alerts": [],
+            "devices": [],
+        })
+        self._run_report(client)
+        out, _ = capsys.readouterr()
+        assert "| Hosts discovered | 2 |" in out
+        assert "| Networks | 1 |" in out
+        assert "| &nbsp;&nbsp;Critical | 2 |" in out
+
+    def test_report_writes_to_file(self, tmp_path) -> None:
+        from server.cli.main import cmd_report
+        import argparse
+
+        outfile = tmp_path / "report.md"
+        client = self._make_client({
+            "/api/v1/version": {"version": "0.1.0"},
+            "hosts": [],
+            "networks": [],
+            "vulns/summary": {},
+            "vulns": [],
+            "agents": [],
+            "alerts": [],
+            "devices": [],
+        })
+        args = argparse.Namespace(output=str(outfile), limit=200)
+        cmd_report(client, args)
+        assert outfile.exists()
+        content = outfile.read_text()
+        assert "# Infrastructure Report" in content
+
+    def test_md_table_empty(self) -> None:
+        from server.cli.main import _md_table
+        assert "_None_" in _md_table([], ["a", "b"])
+
+    def test_md_table_header_formatted(self) -> None:
+        from server.cli.main import _md_table
+        result = _md_table([{"ip_address": "1.2.3.4"}], ["ip_address"])
+        assert "Ip Address" in result
+        assert "1.2.3.4" in result
+
+    def test_report_command_in_parser(self) -> None:
+        from server.cli.main import _build_parser
+        args = _build_parser().parse_args(["report"])
+        assert args.command == "report"
+        assert args.limit == 200
+
+    def test_report_output_flag(self) -> None:
+        from server.cli.main import _build_parser
+        args = _build_parser().parse_args(["report", "--output", "out.md"])
+        assert args.output == "out.md"

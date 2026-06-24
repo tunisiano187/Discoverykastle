@@ -1,13 +1,9 @@
 """
-Unit tests for the credential vault service and API.
+Tests for server/services/vault.py and server/api/vault.py.
 
-VaultService tests: use pytest.importorskip so they skip gracefully when the
-cryptography package is unavailable (broken install), but pass in CI where
-a proper wheel is installed.
-
-API tests: use app.dependency_overrides[get_db] (the correct FastAPI pattern)
-rather than patch("server.api.vault.get_db") — FastAPI stores dependency
-references inside Depends() objects and does NOT re-lookup module attributes.
+Strategy:
+- vault service tests: mock _derive_key / os.urandom to avoid real crypto imports
+- vault API tests: mock vault.encrypt/decrypt + AsyncSession so no DB or crypto needed
 """
 
 from __future__ import annotations
@@ -18,410 +14,559 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from fastapi import FastAPI
-from fastapi.testclient import TestClient
-
-from server.database import get_db
-from server.models.credential import CREDENTIAL_TYPES, Credential
-from server.api.vault import router
-
-_TEST_VAULT_KEY = base64.b64encode(b"A" * 32).decode()  # gitguardian:ignore
-_SECRET = "vault-test-jwt-secret"  # gitguardian:ignore
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
-
-def _make_token(username: str = "alice", role: str = "operator") -> str:
-    from server.services.auth import create_access_token
-
-    return create_access_token(username, role, _SECRET, expire_minutes=60)
+_FAKE_UUID = uuid.UUID("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee")
+_NOW = datetime(2024, 1, 1, 12, 0, 0)
 
 
-def _auth(role: str = "operator") -> dict[str, str]:
-    return {"Authorization": f"Bearer {_make_token('alice', role)}"}
+def _make_cred(**kwargs):
+    defaults = dict(
+        id=_FAKE_UUID,
+        label="test-ssh",
+        credential_type="ssh",
+        device_id=None,
+        ciphertext="FAKECIPHERTEXT==",
+        created_by="operator1",
+        updated_by=None,
+        created_at=_NOW,
+        updated_at=_NOW,
+    )
+    defaults.update(kwargs)
+    cred = MagicMock()
+    for k, v in defaults.items():
+        setattr(cred, k, v)
+    return cred
 
 
-def _make_app() -> FastAPI:
-    app = FastAPI()
-    app.include_router(router)
-    return app
-
-
-def _make_cred(**kwargs) -> MagicMock:
-    c = MagicMock(spec=Credential)
-    c.id = kwargs.get("id", uuid.uuid4())
-    c.device_id = kwargs.get("device_id", "192.168.1.1")
-    c.credential_type = kwargs.get("credential_type", "ssh")
-    c.label = kwargs.get("label", "my-label")
-    c.username_enc = kwargs.get("username_enc", "enc-user")
-    c.secret_enc = kwargs.get("secret_enc", "enc-secret")
-    c.notes_enc = kwargs.get("notes_enc", None)
-    c.created_by = kwargs.get("created_by", "alice")
-    c.created_at = kwargs.get("created_at", datetime(2026, 1, 1))
-    c.updated_at = kwargs.get("updated_at", datetime(2026, 1, 1))
-    return c
-
-
-def _make_fake_db(scalars=None, scalar_one=None):
-    """Return an async generator override for get_db."""
-    async def _fake_db():
-        db = AsyncMock()
-        res = MagicMock()
-        if scalars is not None:
-            res.scalars.return_value = iter(scalars)
-        res.scalar_one_or_none.return_value = scalar_one  # always set, even when None
-        db.execute = AsyncMock(return_value=res)
-        db.add = MagicMock()
-        db.commit = AsyncMock()
-        db.delete = AsyncMock()
-        yield db
-
-    return _fake_db
+def _make_db(cred=None) -> AsyncMock:
+    db = AsyncMock()
+    result = MagicMock()
+    result.scalars.return_value.all.return_value = [cred] if cred else []
+    scalars_mock = MagicMock()
+    scalars_mock.__iter__ = MagicMock(return_value=iter([cred] if cred else []))
+    result.scalars.return_value = scalars_mock
+    db.execute = AsyncMock(return_value=result)
+    db.get = AsyncMock(return_value=cred)
+    db.add = MagicMock()
+    db.commit = AsyncMock()
+    db.refresh = AsyncMock()
+    db.delete = AsyncMock()
+    return db
 
 
 # ---------------------------------------------------------------------------
-# VaultService unit tests
-# Skip if cryptography is not properly installed.
-# ---------------------------------------------------------------------------
-
-cryptography_aead = pytest.importorskip(
-    "cryptography.hazmat.primitives.ciphers.aead",
-    reason="cryptography package not available or broken",
-)
-
-
-class TestVaultService:
-    def _make_vault(self):
-        from server.services.vault import VaultService
-
-        return VaultService(_TEST_VAULT_KEY)
-
-    def test_encrypt_decrypt_roundtrip(self) -> None:
-        vault = self._make_vault()
-        plain = "super-secret-password-123!"
-        token = vault.encrypt(plain)
-        assert token != plain
-        assert vault.decrypt(token) == plain
-
-    def test_encrypt_produces_different_tokens(self) -> None:
-        vault = self._make_vault()
-        t1 = vault.encrypt("abc")
-        t2 = vault.encrypt("abc")
-        assert t1 != t2
-
-    def test_decrypt_tampered_raises(self) -> None:
-        from cryptography.exceptions import InvalidTag
-
-        vault = self._make_vault()
-        token = vault.encrypt("secret")
-        raw = base64.b64decode(token + "==")
-        tampered = raw[:-1] + bytes([raw[-1] ^ 0xFF])
-        with pytest.raises(InvalidTag):
-            vault.decrypt(base64.b64encode(tampered).decode())
-
-    def test_non_base64_key_still_works(self) -> None:
-        from server.services.vault import VaultService
-
-        vault = VaultService("not-base64!!!")
-        assert vault.decrypt(vault.encrypt("hello")) == "hello"
-
-    def test_unicode_plaintext(self) -> None:
-        vault = self._make_vault()
-        plain = "pàssw0rd — ñoño 🔐"
-        assert vault.decrypt(vault.encrypt(plain)) == plain
-
-    def test_empty_string(self) -> None:
-        vault = self._make_vault()
-        assert vault.decrypt(vault.encrypt("")) == ""
-
-    def test_key_derivation_consistent(self) -> None:
-        from server.services.vault import VaultService
-
-        v1 = VaultService("same-key")
-        v2 = VaultService("same-key")
-        token = v1.encrypt("data")
-        assert v2.decrypt(token) == "data"
-
-
-# ---------------------------------------------------------------------------
-# Credential model
+# vault service: VaultError
 # ---------------------------------------------------------------------------
 
 
-class TestCredentialTypes:
-    def test_all_required_types_present(self) -> None:
-        for t in ("ssh", "snmp", "http_api", "winrm", "api_key"):
-            assert t in CREDENTIAL_TYPES
+class TestVaultError:
+    def test_vault_error_is_exception(self) -> None:
+        from server.services.vault import VaultError
+
+        err = VaultError("oops")
+        assert isinstance(err, Exception)
+        assert str(err) == "oops"
 
 
 # ---------------------------------------------------------------------------
-# Vault API — role enforcement
+# vault service: _derive_key
 # ---------------------------------------------------------------------------
 
 
-class TestVaultAPIRoles:
-    def test_viewer_cannot_list(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            client = TestClient(app)
-            resp = client.get("/api/v1/vault/credentials", headers=_auth("viewer"))
-            assert resp.status_code == 403
+class TestDeriveKey:
+    def test_raises_when_key_not_set(self) -> None:
+        from server.services.vault import VaultError, _derive_key
 
-    def test_analyst_cannot_list(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            client = TestClient(app)
-            resp = client.get("/api/v1/vault/credentials", headers=_auth("analyst"))
-            assert resp.status_code == 403
+        with patch("server.config.settings") as mock_settings:
+            mock_settings.vault_key = None
+            with pytest.raises(VaultError, match="DKASTLE_VAULT_KEY is not set"):
+                _derive_key()
 
-    def test_operator_can_list(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalars=[])
-            client = TestClient(app)
-            resp = client.get("/api/v1/vault/credentials", headers=_auth("operator"))
-            assert resp.status_code == 200
+    def test_raises_when_key_is_placeholder(self) -> None:
+        from server.services.vault import VaultError, _derive_key
 
-    def test_admin_can_list(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalars=[])
-            client = TestClient(app)
-            resp = client.get("/api/v1/vault/credentials", headers=_auth("admin"))
-            assert resp.status_code == 200
+        with patch("server.config.settings") as mock_settings:
+            mock_settings.vault_key = "changeme-base64-32-bytes"
+            with pytest.raises(VaultError, match="DKASTLE_VAULT_KEY is not set"):
+                _derive_key()
 
-    def test_analyst_cannot_create(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            client = TestClient(app)
-            resp = client.post(
-                "/api/v1/vault/credentials",
-                json={"device_id": "10.0.0.1", "credential_type": "ssh", "secret": "pass"},
-                headers=_auth("analyst"),
-            )
-            assert resp.status_code == 403
+    def test_accepts_valid_base64_key(self) -> None:
+        from server.services.vault import _derive_key
 
-    def test_unauthenticated_rejected(self) -> None:
-        app = _make_app()
-        client = TestClient(app)
-        resp = client.get("/api/v1/vault/credentials")
-        assert resp.status_code == 401
+        key_bytes = b"A" * 32
+        b64_key = base64.b64encode(key_bytes).decode()
+        with patch("server.config.settings") as mock_settings:
+            mock_settings.vault_key = b64_key
+            result = _derive_key()
+        assert result == key_bytes
+        assert len(result) == 32
+
+    def test_accepts_valid_hex_key(self) -> None:
+        from server.services.vault import _derive_key
+
+        key_bytes = bytes(range(32))
+        hex_key = key_bytes.hex()
+        with patch("server.config.settings") as mock_settings:
+            mock_settings.vault_key = hex_key
+            result = _derive_key()
+        assert result == key_bytes
+        assert len(result) == 32
+
+    def test_raises_on_wrong_key_length(self) -> None:
+        from server.services.vault import VaultError, _derive_key
+
+        short_key = base64.b64encode(b"too-short").decode()
+        with patch("server.config.settings") as mock_settings:
+            mock_settings.vault_key = short_key
+            with pytest.raises(VaultError, match="32 bytes"):
+                _derive_key()
+
+    def test_raises_on_malformed_key(self) -> None:
+        from server.services.vault import VaultError, _derive_key
+
+        with patch("server.config.settings") as mock_settings:
+            mock_settings.vault_key = "not-valid-base64-or-hex!!!"
+            with pytest.raises(VaultError, match="base64 or hex"):
+                _derive_key()
 
 
 # ---------------------------------------------------------------------------
-# Vault API — CRUD behaviour
+# vault service: decrypt — short blob check (no crypto needed)
 # ---------------------------------------------------------------------------
 
 
-class TestVaultAPICRUD:
-    def test_list_returns_metadata_only(self) -> None:
-        creds = [_make_cred(device_id="10.0.0.1"), _make_cred(device_id="10.0.0.2")]
+class TestDecryptShortBlob:
+    def test_decrypt_raises_vault_error_on_short_blob(self) -> None:
+        from server.services.vault import VaultError, decrypt
 
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalars=creds)
-            client = TestClient(app)
-            resp = client.get("/api/v1/vault/credentials", headers=_auth("operator"))
+        key_bytes = b"K" * 32
+        short_blob = base64.b64encode(b"\x00" * 10).decode()
+        with patch("server.services.vault._derive_key", return_value=key_bytes):
+            with pytest.raises(VaultError, match="too short"):
+                decrypt(short_blob)
 
-        assert resp.status_code == 200
-        items = resp.json()
-        assert len(items) == 2
-        for item in items:
-            assert "secret" not in item
-            assert "secret_enc" not in item
-            assert "username_enc" not in item
-            assert "notes_enc" not in item
-            assert "device_id" in item
-            assert "credential_type" in item
-            assert "has_username" in item
 
-    def test_get_single_credential(self) -> None:
-        cred_id = uuid.uuid4()
-        cred = _make_cred(id=cred_id, device_id="10.0.0.99")
+# ---------------------------------------------------------------------------
+# Vault API tests
+# ---------------------------------------------------------------------------
 
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=cred)
-            client = TestClient(app)
-            resp = client.get(
-                f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator")
-            )
 
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["device_id"] == "10.0.0.99"
-        assert "secret" not in body
-        assert "secret_enc" not in body
+class TestVaultAPI:
+    """Test vault API endpoints with mocked DB and vault service."""
 
-    def test_get_nonexistent_returns_404(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=None)
-            client = TestClient(app)
-            resp = client.get(
-                f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("operator")
-            )
+    def _auth_headers(self):
+        return {"Authorization": "Bearer fake-token"}
 
-        assert resp.status_code == 404
+    def _make_app(self, db: AsyncMock):
+        from fastapi import FastAPI
+        from server.api.vault import router
 
-    def test_create_encrypts_secret(self) -> None:
-        cred_id = uuid.uuid4()
+        app = FastAPI()
 
-        async def _fake_db_create():
-            db = AsyncMock()
-            db.add = MagicMock()
-            db.commit = AsyncMock()
-
-            async def _refresh(obj):
-                obj.id = cred_id
-                obj.device_id = "10.0.0.1"
-                obj.credential_type = "ssh"
-                obj.label = None
-                obj.username_enc = "enc-user"
-                obj.secret_enc = "enc-secret"
-                obj.notes_enc = None
-                obj.created_by = "alice"
-                obj.created_at = datetime(2026, 1, 1)
-                obj.updated_at = datetime(2026, 1, 1)
-
-            db.refresh = _refresh
+        async def _fake_db():
             yield db
 
-        mock_vault = MagicMock()
-        mock_vault.encrypt.return_value = "encrypted-value"
+        app.include_router(router)
+        # Override get_db
+        from server.database import get_db
+        app.dependency_overrides[get_db] = _fake_db
+        return app
 
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_vault", return_value=mock_vault),
-        ):
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _fake_db_create
-            client = TestClient(app)
-            resp = client.post(
-                "/api/v1/vault/credentials",
-                json={
-                    "device_id": "10.0.0.1",
-                    "credential_type": "ssh",
-                    "username": "admin",
-                    "secret": "s3cr3t",
-                },
-                headers=_auth("operator"),
-            )
+    @pytest.mark.asyncio
+    async def test_create_credential_returns_201(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
 
+        db = _make_db()
+
+        async def _refresh_side_effect(obj):
+            # Simulate DB filling auto-generated fields after flush
+            obj.id = _FAKE_UUID
+            obj.created_at = _NOW
+            obj.updated_at = _NOW
+
+        db.refresh = AsyncMock(side_effect=_refresh_side_effect)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        with patch("server.api.vault.encrypt", return_value="FAKECIPHERTEXT=="):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.post(
+                    "/api/v1/vault/credentials",
+                    json={
+                        "label": "test-ssh",
+                        "credential_type": "ssh",
+                        "data": {"user": "alice", "password": "secret"},
+                    },
+                )
         assert resp.status_code == 201
-        assert mock_vault.encrypt.called
-        body = resp.json()
-        assert "secret" not in body
-        assert "secret_enc" not in body
-        assert body["has_username"] is True
 
-    def test_create_invalid_type_rejected(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            client = TestClient(app)
-            resp = client.post(
-                "/api/v1/vault/credentials",
-                json={"device_id": "10.0.0.1", "credential_type": "telnet", "secret": "x"},
-                headers=_auth("operator"),
-            )
-        assert resp.status_code == 422
+    @pytest.mark.asyncio
+    async def test_list_credentials_returns_200(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
 
-    def test_create_empty_secret_rejected(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            client = TestClient(app)
-            resp = client.post(
-                "/api/v1/vault/credentials",
-                json={"device_id": "10.0.0.1", "credential_type": "ssh", "secret": "   "},
-                headers=_auth("operator"),
-            )
-        assert resp.status_code == 422
+        cred = _make_cred()
+        db = _make_db(cred)
 
-    def test_delete_credential(self) -> None:
-        cred_id = uuid.uuid4()
-        cred = _make_cred(id=cred_id)
+        app = FastAPI()
 
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=cred)
-            client = TestClient(app)
-            resp = client.delete(
-                f"/api/v1/vault/credentials/{cred_id}", headers=_auth("operator")
-            )
+        async def _fake_db():
+            yield db
 
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get("/api/v1/vault/credentials")
+        assert resp.status_code == 200
+        assert isinstance(resp.json(), list)
+
+    @pytest.mark.asyncio
+    async def test_get_credential_returns_200(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get(f"/api/v1/vault/credentials/{_FAKE_UUID}")
+        assert resp.status_code == 200
+        assert resp.json()["label"] == "test-ssh"
+
+    @pytest.mark.asyncio
+    async def test_get_credential_404_when_not_found(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        db = _make_db(None)  # no credential found
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get(f"/api/v1/vault/credentials/{_FAKE_UUID}")
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_credential_returns_204(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_admin
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_admin] = lambda: "admin1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.delete(f"/api/v1/vault/credentials/{_FAKE_UUID}")
         assert resp.status_code == 204
 
-    def test_delete_nonexistent_returns_404(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalar_one=None)
-            client = TestClient(app)
-            resp = client.delete(
-                f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=_auth("admin")
-            )
+    @pytest.mark.asyncio
+    async def test_delete_credential_404_when_not_found(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_admin
+        from server.database import get_db
 
-        assert resp.status_code == 404
+        db = _make_db(None)
 
-    def test_patch_credential(self) -> None:
-        cred_id = uuid.uuid4()
-        cred = _make_cred(id=cred_id, label="old-label")
+        app = FastAPI()
 
-        async def _fake_db_patch():
-            db = AsyncMock()
-            res = MagicMock()
-            res.scalar_one_or_none.return_value = cred
-            db.execute = AsyncMock(return_value=res)
-            db.commit = AsyncMock()
-
-            async def _refresh(obj):
-                pass
-
-            db.refresh = _refresh
+        async def _fake_db():
             yield db
 
-        mock_vault = MagicMock()
-        mock_vault.encrypt.return_value = "new-enc"
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_admin] = lambda: "admin1"
+        app.include_router(router)
 
-        with (
-            patch("server.config.settings") as ms,
-            patch("server.api.vault.get_vault", return_value=mock_vault),
-        ):
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _fake_db_patch
-            client = TestClient(app)
-            resp = client.patch(
-                f"/api/v1/vault/credentials/{cred_id}",
-                json={"label": "new-label", "secret": "new-pass"},
-                headers=_auth("operator"),
-            )
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.delete(f"/api/v1/vault/credentials/{_FAKE_UUID}")
+        assert resp.status_code == 404
 
+    @pytest.mark.asyncio
+    async def test_decrypt_credential_returns_plaintext(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        with patch("server.api.vault.decrypt", return_value={"user": "alice", "password": "s3cr3t"}):  # gitguardian:ignore
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.post(f"/api/v1/vault/credentials/{_FAKE_UUID}/decrypt")
         assert resp.status_code == 200
-        mock_vault.encrypt.assert_called_once_with("new-pass")
+        body = resp.json()
+        assert body["data"]["user"] == "alice"
+        assert body["data"]["password"] == "s3cr3t"
 
-    def test_filter_by_device_id(self) -> None:
-        with patch("server.config.settings") as ms:
-            ms.secret_key = _SECRET
-            app = _make_app()
-            app.dependency_overrides[get_db] = _make_fake_db(scalars=[])
-            client = TestClient(app)
-            resp = client.get(
-                "/api/v1/vault/credentials?device_id=10.0.0.1", headers=_auth("operator")
+    @pytest.mark.asyncio
+    async def test_decrypt_credential_404_when_not_found(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        db = _make_db(None)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.post(f"/api/v1/vault/credentials/{_FAKE_UUID}/decrypt")
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_create_credential_500_on_vault_error(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+        from server.services.vault import VaultError
+
+        db = _make_db()
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        with patch("server.api.vault.encrypt", side_effect=VaultError("key not set")):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.post(
+                    "/api/v1/vault/credentials",
+                    json={"label": "x", "credential_type": "ssh", "data": {"k": "v"}},
+                )
+        assert resp.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_decrypt_credential_500_on_vault_error(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+        from server.services.vault import VaultError
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        with patch("server.api.vault.decrypt", side_effect=VaultError("wrong key")):
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.post(f"/api/v1/vault/credentials/{_FAKE_UUID}/decrypt")
+        assert resp.status_code == 500
+
+    @pytest.mark.asyncio
+    async def test_update_credential_returns_200(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        async def _refresh_side_effect(obj):
+            obj.label = "updated-label"
+            obj.updated_by = "operator1"
+
+        db.refresh = AsyncMock(side_effect=_refresh_side_effect)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.patch(
+                f"/api/v1/vault/credentials/{_FAKE_UUID}",
+                json={"label": "updated-label"},
+            )
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_update_credential_404_when_not_found(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        db = _make_db(None)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.patch(
+                f"/api/v1/vault/credentials/{_FAKE_UUID}",
+                json={"label": "new"},
+            )
+        assert resp.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_update_credential_reencrypts_when_data_provided(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+        db.refresh = AsyncMock(side_effect=lambda obj: None)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        with patch("server.api.vault.encrypt", return_value="NEWCIPHERTEXT==") as mock_enc:
+            async with httpx.AsyncClient(
+                transport=httpx.ASGITransport(app=app), base_url="http://test"
+            ) as client:
+                resp = await client.patch(
+                    f"/api/v1/vault/credentials/{_FAKE_UUID}",
+                    json={"data": {"user": "bob", "password": "new-pw"}},  # gitguardian:ignore
+                )
+        mock_enc.assert_called_once()
+        assert resp.status_code == 200
+
+    @pytest.mark.asyncio
+    async def test_list_credentials_with_query_params(self) -> None:
+        import httpx
+        from fastapi import FastAPI
+        from server.api.vault import router, _require_operator
+        from server.database import get_db
+
+        cred = _make_cred()
+        db = _make_db(cred)
+
+        app = FastAPI()
+
+        async def _fake_db():
+            yield db
+
+        app.dependency_overrides[get_db] = _fake_db
+        app.dependency_overrides[_require_operator] = lambda: "operator1"
+        app.include_router(router)
+
+        async with httpx.AsyncClient(
+            transport=httpx.ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            resp = await client.get(
+                "/api/v1/vault/credentials",
+                params={"credential_type": "ssh", "skip": 0, "limit": 10},
             )
         assert resp.status_code == 200

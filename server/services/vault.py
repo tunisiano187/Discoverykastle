@@ -1,67 +1,121 @@
 """
-AES-256-GCM credential vault service.
+Credential Vault — AES-256-GCM encrypt/decrypt for stored credentials.
 
-Provides symmetric encryption for sensitive values (passwords, API keys,
-SNMP community strings) stored in the ``vault_credentials`` table.
+Encryption:
+  - Key: DKASTLE_VAULT_KEY (base64-encoded 32-byte key, generated at first run)
+  - Algorithm: AES-256-GCM (authenticated encryption)
+  - Nonce: random 12 bytes per encryption operation
+  - Stored blob: base64(nonce[12] + tag[16] + ciphertext)
 
-The master key is sourced from ``DKASTLE_VAULT_KEY`` (32-byte base64 string).
-If the value is not valid base64 or not exactly 32 bytes when decoded, a
-deterministic 32-byte key is derived via SHA-256 so any string works.
-
-Wire format: base64(nonce[12] || ciphertext+tag)
+The key is never stored in the DB.  Rotating the key requires re-encrypting
+all stored credentials (out of scope for this module — use a migration script).
 """
 
 from __future__ import annotations
 
 import base64
-import hashlib
-import logging
+import json
 import os
 
-logger = logging.getLogger(__name__)
+
+class VaultError(Exception):
+    """Raised when vault encryption/decryption fails."""
 
 
-def _key_bytes(vault_key: str) -> bytes:
-    """Return a 32-byte AES key derived from the vault_key config string."""
+def _derive_key() -> bytes:
+    """
+    Return the 32-byte AES-256 key from the DKASTLE_VAULT_KEY setting.
+
+    Accepts both raw base64 and hex-encoded keys.
+    Raises VaultError if the key is missing or malformed.
+    """
+    from server.config import settings
+
+    raw = settings.vault_key
+    if not raw or raw == "changeme-base64-32-bytes":
+        raise VaultError(
+            "DKASTLE_VAULT_KEY is not set. "
+            "Generate a key with: python -c \"import secrets,base64; "
+            "print(base64.b64encode(secrets.token_bytes(32)).decode())\""
+        )
+    # Try base64 first; fall back to hex if base64 gives the wrong length
+    # (a 64-char hex string is valid base64 but decodes to 48 bytes, not 32).
+    key: bytes | None = None
     try:
-        raw = base64.b64decode(vault_key + "==")
-        if len(raw) == 32:
-            return raw
+        candidate = base64.b64decode(raw)
+        if len(candidate) == 32:
+            key = candidate
     except Exception:
         pass
-    return hashlib.sha256(vault_key.encode()).digest()
+
+    if key is None:
+        try:
+            candidate = bytes.fromhex(raw)
+            if len(candidate) == 32:
+                key = candidate
+        except Exception:
+            pass
+
+    if key is None:
+        raise VaultError("DKASTLE_VAULT_KEY must be base64 or hex-encoded 32 bytes")
+    return key
 
 
-class VaultService:
-    """AES-256-GCM encrypt / decrypt for credential secrets."""
+def encrypt(plaintext: dict) -> str:
+    """
+    Encrypt a credential dict and return a base64-encoded ciphertext blob.
 
-    def __init__(self, vault_key: str) -> None:
-        from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    Args:
+        plaintext: Dict containing the credential fields (e.g. username, password).
 
-        self._aesgcm = AESGCM(_key_bytes(vault_key))
+    Returns:
+        base64(nonce[12] + tag[16] + ciphertext)
+    """
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-    def encrypt(self, plaintext: str) -> str:
-        """Encrypt *plaintext* and return a base64-encoded token (nonce + ciphertext)."""
-        nonce = os.urandom(12)
-        ct = self._aesgcm.encrypt(nonce, plaintext.encode(), None)
-        return base64.b64encode(nonce + ct).decode()
-
-    def decrypt(self, token: str) -> str:
-        """Decrypt a token produced by :meth:`encrypt` and return plaintext."""
-        data = base64.b64decode(token + "==")
-        nonce, ct = data[:12], data[12:]
-        return self._aesgcm.decrypt(nonce, ct, None).decode()
-
-
-_vault: VaultService | None = None
+    key = _derive_key()
+    nonce = os.urandom(12)
+    data = json.dumps(plaintext).encode()
+    aesgcm = AESGCM(key)
+    # AESGCM.encrypt returns ciphertext + tag (tag is appended)
+    ct_with_tag = aesgcm.encrypt(nonce, data, None)
+    blob = nonce + ct_with_tag
+    return base64.b64encode(blob).decode()
 
 
-def get_vault() -> VaultService:
-    """Return the module-level VaultService singleton (lazy-initialised)."""
-    global _vault
-    if _vault is None:
-        from server.config import settings
+def decrypt(ciphertext_b64: str) -> dict:
+    """
+    Decrypt a ciphertext blob and return the original credential dict.
 
-        _vault = VaultService(settings.vault_key)
-        logger.debug("VaultService initialised.", extra={"event": "vault_init"})
-    return _vault
+    Args:
+        ciphertext_b64: base64(nonce[12] + tag[16] + ciphertext)
+
+    Returns:
+        The decrypted credential dict.
+
+    Raises:
+        VaultError: If decryption fails (wrong key, tampered data, etc.)
+    """
+    key = _derive_key()
+    try:
+        blob = base64.b64decode(ciphertext_b64)
+    except Exception as exc:
+        raise VaultError(f"Decryption failed: {exc}") from exc
+
+    if len(blob) < 28:  # nonce(12) + tag(16) minimum
+        raise VaultError("Ciphertext blob is too short")
+
+    nonce = blob[:12]
+    ct_with_tag = blob[12:]
+
+    from cryptography.hazmat.primitives.ciphers.aead import AESGCM
+    from cryptography.exceptions import InvalidTag
+
+    try:
+        aesgcm = AESGCM(key)
+        plaintext = aesgcm.decrypt(nonce, ct_with_tag, None)
+        return json.loads(plaintext)
+    except InvalidTag:
+        raise VaultError("Decryption failed: invalid tag (wrong key or tampered data)")
+    except Exception as exc:
+        raise VaultError(f"Decryption failed: {exc}") from exc
