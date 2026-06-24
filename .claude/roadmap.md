@@ -1,12 +1,12 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-05-24
+Last updated: 2026-06-07
 
 ## Currently open PR
-- PR #16: feat(auth): RBAC multi-user system + audit log API — in progress (this session)
-  - Notes: implementing viewer/analyst/operator/admin roles, user CRUD API, audit log read endpoint
+- Branch `claude/initial-project-documentation-ogkzS` pushed — PR pending creation
 
 ## Recently merged
+- PR #16: feat(auth): RBAC multi-user system + audit log API — merged
 - PR #15: feat: add dkctl admin CLI and agent Docker support — merged 2026-05-15
 - PR #14: feat: add comprehensive test suite + GitHub Actions CI — merged 2026-05-09
 - PR #13: feat: Ansible agent collector, Netmiko device collector, Devices SPA page — merged 2026-05-09
@@ -15,40 +15,28 @@ Last updated: 2026-05-24
 
 ## Todo (prioritized — pick from the top)
 
-1. [HIGH] Credential vault API
-   - Described in docs/security.md: AES-256-GCM encrypted storage for device credentials
-   - POST/GET/DELETE /api/v1/vault/credentials
-   - Ephemeral task-scoped credential delivery over WebSocket
-   - Master key sourced from DKASTLE_VAULT_KEY env var
-
-2. [HIGH] Rate limiting on /api/v1/auth/login
-   - Prevent brute-force attacks (threshold: 5 failed attempts in 5 minutes)
-   - Block IP temporarily or add CAPTCHA
-   - Use Redis-backed counter or slowapi
-
-3. [MEDIUM] Documentation generator service
-   - Background service generating Markdown from collected data
-   - Network segments, individual hosts, network devices, executive summary
-   - GET /api/v1/docs/generate, /network/{id}, /device/{id}, /export
-
-4. [MEDIUM] Agent auto-deployment
-   - Deploy agent automatically on newly discovered hosts (with operator approval)
-   - SSH-based deployment for Linux, WinRM/PSRemoting for Windows
-   - Very high complexity — needs credential vault first
-
-5. [LOW] Integration tests end-to-end
+1. [LOW] Integration tests end-to-end
    - Full coverage with a test PostgreSQL database
    - Test complete flows: enrollment → scan → host discovery → alert
+   - Requires asyncpg + real DB fixture (e.g. pytest-asyncio + testcontainers)
 
-6. [LOW] Multitenancy support
+2. [LOW] Multitenancy support
    - Multiple teams/projects in the same instance
    - Very high complexity
 
-## Done
-- RBAC multi-user system (viewer/analyst/operator/admin roles) — PR #16 (this session)
-- Audit log read API (GET /api/v1/audit-log, admin only) — PR #16 (this session)
-- User management CRUD API (/api/v1/users, admin only) — PR #16 (this session)
-- Alembic migration 0002 for users table — PR #16 (this session)
+## Done (this session / recent)
+- Login rate limiting (Redis sliding window, 5 failures → HTTP 429) ✅
+- Credential vault API (AES-256-GCM, POST/GET/DELETE/decrypt) ✅
+- Alembic migration 0003 for credentials table ✅
+- Documentation generator (GET /api/v1/docs/summary|network|device|export) ✅
+- Agent auto-deployment via SSH (POST /api/v1/deploy/{host_id}) ✅
+- CI at 346 tests passing ✅
+
+## Done (older)
+- RBAC multi-user system (viewer/analyst/operator/admin roles) — PR #16
+- Audit log read API (GET /api/v1/audit-log, admin only) — PR #16
+- User management CRUD API (/api/v1/users, admin only) — PR #16
+- Alembic migration 0002 for users table — PR #16
 - Admin CLI (dkctl) + agent Docker image — PR #15
 - Test suite (151+ tests) + GitHub Actions CI — PR #14
 - Ansible agent collector + Netmiko + Devices SPA — PR #13
