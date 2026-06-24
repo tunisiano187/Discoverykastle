@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -21,6 +21,11 @@ from server.services.auth import (
     create_access_token,
     require_operator,
     verify_password,
+)
+from server.services.rate_limit import (
+    check_login_rate_limit,
+    record_failed_login,
+    clear_login_failures,
 )
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
@@ -53,10 +58,17 @@ class MeResponse(BaseModel):
 
 
 @router.post("/login", response_model=TokenResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def login(
+    request: Request,
+    body: LoginRequest,
+    db: AsyncSession = Depends(get_db),
+) -> TokenResponse:
     """Exchange credentials for a JWT access token."""
     from server.config import settings
     from server.models.user import User
+
+    # Check rate limit BEFORE touching the DB to prevent timing attacks
+    await check_login_rate_limit(request, body.username)
 
     result = await db.execute(select(User).where(User.username == body.username))
     user: User | None = result.scalar_one_or_none()
@@ -97,12 +109,14 @@ async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)) -> Token
             role = "admin"
 
     if not authenticated:
+        await record_failed_login(request, body.username)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
 
+    await clear_login_failures(body.username)
     token = create_access_token(body.username, role, settings.secret_key, settings.jwt_expire_minutes)
     return TokenResponse(access_token=token, expires_in=settings.jwt_expire_minutes * 60)
 

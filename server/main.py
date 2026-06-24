@@ -35,6 +35,8 @@ from server.api.vulns import router as vulns_router
 from server.api.users import router as users_router
 from server.api.audit_log import router as audit_log_router
 from server.api.vault import router as vault_router
+from server.api.docs_api import router as docs_router
+from server.api.deploy import router as deploy_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -177,6 +179,8 @@ app.include_router(vulns_router)
 app.include_router(users_router)
 app.include_router(audit_log_router)
 app.include_router(vault_router)
+app.include_router(docs_router)
+app.include_router(deploy_router)
 
 # Serve the React SPA — static assets first, then index.html catch-all
 _ui_dir = Path(__file__).parent / "static" / "ui"
@@ -209,7 +213,25 @@ async def service_worker() -> FileResponse:
 
 @app.get("/health")
 async def health() -> dict:
+    import os
+
+    checks: dict[str, str] = {}
+
+    checks["vault_key"] = "configured" if os.environ.get("DKASTLE_VAULT_KEY") else "not_configured"
+
+    try:
+        import redis.asyncio as aioredis
+        from server.config import settings as _s
+        _rc = aioredis.from_url(_s.redis_url, socket_connect_timeout=1)
+        await _rc.ping()
+        await _rc.aclose()
+        checks["redis"] = "ok"
+    except Exception:
+        checks["redis"] = "unavailable"
+
+    degraded = any(v in ("unavailable", "error") for v in checks.values())
     return {
-        "status": "ok",
+        "status": "degraded" if degraded else "ok",
         "modules": len(registry.list_modules()),
+        "checks": checks,
     }
