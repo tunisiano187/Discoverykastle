@@ -1,14 +1,17 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-06-24
+Last updated: 2026-06-28
 
 ## Currently open PR
-- PR on branch `claude/integration-tests-hy2ann` — end-to-end integration tests
+- PR #22 on branch `claude/integration-tests-hy2ann` — end-to-end integration test suite (33 tests)
+  - CI was failing with: event loop mismatch, asyncpg errors, wrong RBAC for DELETE, GitGuardian false positives
+  - Fixed in cc25180: asyncio_default_fixture_loop_scope=session, admin_headers for delete tests, # gitguardian:ignore annotations
+  - Waiting for CI re-run to confirm green
 
 ## Recently merged
 - PR #21: fix: GitGuardian false positives + Credential model export — merged 2026-06-24
-- PR #19: feat: credential vault, rate limiting, docs generator, agent auto-deploy, 346 tests — merged 2026-06-07
-- PR #16: feat(auth): RBAC multi-user system + audit log API — merged
+- PR #19: feat: dkctl report subcommand + 7 tests — merged 2026-06-24
+- PR #16: feat(auth): RBAC multi-user system + audit log API — merged 2026-05-28
 - PR #15: feat: add dkctl admin CLI and agent Docker support — merged 2026-05-15
 - PR #14: feat: add comprehensive test suite + GitHub Actions CI — merged 2026-05-09
 - PR #13: feat: Ansible agent collector, Netmiko device collector, Devices SPA page — merged 2026-05-09
@@ -17,22 +20,34 @@ Last updated: 2026-06-24
 
 ## Todo (prioritized — pick from the top)
 
-1. [IN PROGRESS] Integration tests end-to-end
-   - Full coverage with a test PostgreSQL database
-   - Test complete flows: enrollment → scan → host discovery → alert
-   - Requires asyncpg + real DB fixture (e.g. pytest-asyncio + testcontainers)
+1. [HIGH] React SPA — Networks, Topology, AuthRequests pages
+   - `ui/src/pages/Networks.tsx`, `Topology.tsx`, `AuthRequests.tsx` are either missing or stub
+   - Docs mention a full dashboard; only Hosts/Devices pages exist
+   - Enables operators to visualize the discovered network without CLI
 
-2. [LOW] Multitenancy support
+2. [HIGH] Agent nmap collector improvements
+   - `agent/collectors/network_scan.py` exists but scan results need richer parsing
+   - CVE correlation against discovered services is not fully wired
+
+3. [MEDIUM] Alembic migration coverage
+   - Some tables (audit_log, alerts, hosts, networks) may still use create_all()
+   - Need incremental migrations so production upgrades work safely
+
+4. [MEDIUM] LDAP/AD module
+   - `server/modules/builtin/ldap/module.py` — referenced in docs and CLAUDE.md but not verified complete
+
+5. [LOW] Multitenancy support
    - Multiple teams/projects in the same instance
-   - Very high complexity
+   - Very high complexity — defer until core flows are stable
 
-## Done (this session / recent)
+## Done (recent)
+- Integration test suite (33 tests: auth, vault, inventory) — PR #22 in progress
 - Login rate limiting (Redis sliding window, 5 failures → HTTP 429) ✅
 - Credential vault API (AES-256-GCM, POST/GET/DELETE/decrypt) ✅
 - Alembic migration 0003 for credentials table ✅
 - Documentation generator (GET /api/v1/docs/summary|network|device|export) ✅
 - Agent auto-deployment via SSH (POST /api/v1/deploy/{host_id}) ✅
-- CI at 346 tests passing ✅
+- CI at 346 unit tests passing ✅
 
 ## Done (older)
 - RBAC multi-user system (viewer/analyst/operator/admin roles) — PR #16
