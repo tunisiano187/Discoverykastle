@@ -67,11 +67,6 @@ def apply_migrations():
         )
 
 
-@pytest.fixture(scope="session")
-def anyio_backend():
-    return "asyncio"
-
-
 @pytest_asyncio.fixture(scope="session")
 async def engine():
     from sqlalchemy.ext.asyncio import create_async_engine

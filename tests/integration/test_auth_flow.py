@@ -88,7 +88,10 @@ class TestLogin:
         try:
             resp = await client.post(
                 "/api/v1/auth/login",
-                json={"username": "it-inactive-user", "password": "it-auth-value-inactive"},
+                json={
+                    "username": "it-inactive-user",
+                    "password": "it-auth-value-inactive",  # gitguardian:ignore
+                },
             )
             assert resp.status_code == 401
         finally:

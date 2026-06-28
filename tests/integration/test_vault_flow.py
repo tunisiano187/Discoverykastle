@@ -121,7 +121,7 @@ class TestVaultCRUD:
         assert resp.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_credential(self, client, auth_headers, engine):
+    async def test_delete_credential(self, client, auth_headers, admin_headers, engine):
         from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
         from server.models.credential import Credential
         from server.services.vault import encrypt
@@ -141,7 +141,7 @@ class TestVaultCRUD:
             await session.commit()
 
         resp = await client.delete(
-            f"/api/v1/vault/credentials/{cred_id}", headers=auth_headers
+            f"/api/v1/vault/credentials/{cred_id}", headers=admin_headers
         )
         assert resp.status_code == 204
 
@@ -152,9 +152,9 @@ class TestVaultCRUD:
         assert resp2.status_code == 404
 
     @pytest.mark.asyncio
-    async def test_delete_nonexistent_returns_404(self, client, auth_headers):
+    async def test_delete_nonexistent_returns_404(self, client, admin_headers):
         resp = await client.delete(
-            f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=auth_headers
+            f"/api/v1/vault/credentials/{uuid.uuid4()}", headers=admin_headers
         )
         assert resp.status_code == 404
 
