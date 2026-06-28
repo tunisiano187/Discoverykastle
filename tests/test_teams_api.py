@@ -166,7 +166,11 @@ class TestGetTeam:
 
         team = _make_team()
         member = _make_membership("bob", "operator")
-        db = _make_db(team=team, members=[member])
+        db = AsyncMock()
+        mem_result = MagicMock()
+        mem_result.scalars.return_value.all.return_value = [member]
+        db.get = AsyncMock(return_value=team)
+        db.execute = AsyncMock(return_value=mem_result)
 
         result = await get_team(team_id=_TEAM_ID, _="admin", db=db)
         assert result.id == _TEAM_ID

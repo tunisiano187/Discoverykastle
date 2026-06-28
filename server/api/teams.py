@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.database import get_db
+from server.models.team import Team, TeamMembership
 from server.services.auth import require_admin, require_operator
 
 router = APIRouter(prefix="/api/v1/teams", tags=["teams"])
@@ -80,8 +81,6 @@ async def list_teams(
     _: Annotated[str, Depends(require_operator)],
     db: AsyncSession = Depends(get_db),
 ) -> list[TeamOut]:
-    from server.models.team import Team
-
     result = await db.execute(select(Team).order_by(Team.name))
     return [TeamOut.model_validate(t) for t in result.scalars().all()]
 
@@ -92,8 +91,6 @@ async def create_team(
     admin: Annotated[str, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> TeamOut:
-    from server.models.team import Team
-
     existing = await db.execute(select(Team).where(Team.name == body.name))
     if existing.scalar_one_or_none():
         raise HTTPException(
@@ -114,8 +111,6 @@ async def get_team(
     _: Annotated[str, Depends(require_operator)],
     db: AsyncSession = Depends(get_db),
 ) -> TeamDetail:
-    from server.models.team import Team, TeamMembership
-
     team = await db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
@@ -140,8 +135,6 @@ async def delete_team(
     _: Annotated[str, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    from server.models.team import Team
-
     team = await db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
@@ -157,8 +150,6 @@ async def add_member(
     _: Annotated[str, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> MemberOut:
-    from server.models.team import Team, TeamMembership
-
     if body.role not in _VALID_ROLES:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -194,8 +185,6 @@ async def remove_member(
     _: Annotated[str, Depends(require_admin)],
     db: AsyncSession = Depends(get_db),
 ) -> None:
-    from server.models.team import Team, TeamMembership
-
     team = await db.get(Team, team_id)
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
