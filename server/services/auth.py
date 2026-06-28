@@ -73,7 +73,10 @@ def hash_password(plain: str) -> str:
 
 def verify_password(plain: str, hashed: str) -> bool:
     """Return True if ``plain`` matches the ``hashed`` bcrypt digest."""
-    return _pwd_ctx.verify(plain, hashed)
+    try:
+        return _pwd_ctx.verify(plain, hashed)
+    except Exception:
+        return False
 
 
 # ------------------------------------------------------------------
