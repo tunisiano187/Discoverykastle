@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -112,7 +112,6 @@ class TestCreateTeam:
     async def test_creates_team(self) -> None:
         from server.api.teams import TeamCreate, create_team
 
-        team = _make_team()
         db = AsyncMock()
         no_existing = MagicMock()
         no_existing.scalar_one_or_none.return_value = None
@@ -121,16 +120,14 @@ class TestCreateTeam:
         db.commit = AsyncMock()
 
         async def _refresh(obj):
-            for k, v in vars(team).items():
-                if not k.startswith("_"):
-                    setattr(obj, k, v)
+            obj.id = _TEAM_ID
+            obj.name = "it-team"
+            obj.description = None
+            obj.created_by = "admin"
 
         db.refresh = AsyncMock(side_effect=_refresh)
 
-        with patch("server.api.teams.Team") as MockTeam:
-            new_team = _make_team()
-            MockTeam.return_value = new_team
-            result = await create_team(body=TeamCreate(name="it-team"), admin="admin", db=db)
+        result = await create_team(body=TeamCreate(name="it-team"), admin="admin", db=db)
 
         assert result.name == "it-team"
         db.add.assert_called_once()
@@ -233,27 +230,17 @@ class TestAddMember:
         no_membership = MagicMock()
         no_membership.scalar_one_or_none.return_value = None
 
-        call_count = 0
-
-        async def _execute(stmt):
-            nonlocal call_count
-            call_count += 1
-            return no_membership
-
         db.get = AsyncMock(return_value=team)
-        db.execute = _execute
+        db.execute = AsyncMock(return_value=no_membership)
         db.add = MagicMock()
         db.commit = AsyncMock()
 
-        with patch("server.api.teams.TeamMembership") as MockMembership:
-            m = _make_membership("alice", "operator")
-            MockMembership.return_value = m
-            result = await add_member(
-                team_id=_TEAM_ID,
-                body=MemberAdd(username="alice", role="operator"),
-                _="admin",
-                db=db,
-            )
+        result = await add_member(
+            team_id=_TEAM_ID,
+            body=MemberAdd(username="alice", role="operator"),
+            _="admin",
+            db=db,
+        )
 
         assert result.username == "alice"
         assert result.role == "operator"
