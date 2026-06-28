@@ -3,9 +3,10 @@
 Last updated: 2026-06-28
 
 ## Currently open PR
-- PR #23 on branch `claude/integration-tests-v2` — end-to-end integration tests (fresh branch, clean history)
+- PR #24 on branch `claude/multitenancy-hy2ann` — multitenancy foundation (teams/projects model + DB migration)
 
 ## Recently merged
+- PR #23: feat(tests): end-to-end integration test suite against live PostgreSQL — merged 2026-06-28
 - PR #21: fix(vault): GitGuardian suppression + Credential model export — merged 2026-06-28
 - PR #19: feat: credential vault, rate limiting, docs generator, agent auto-deploy, 346 tests — merged 2026-06-07
 - PR #16: feat(auth): RBAC multi-user system + audit log API — merged
@@ -17,15 +18,15 @@ Last updated: 2026-06-28
 
 ## Todo (prioritized — pick from the top)
 
-1. [IN PROGRESS] Integration tests end-to-end — PR #23
-   - tests/integration/ with auth, vault, inventory flows against live PostgreSQL
-   - GitGuardian clean (fresh branch, single commit, trust auth)
-
-2. [LOW] Multitenancy support
-   - Multiple teams/projects in the same instance
-   - Very high complexity
+1. [IN PROGRESS] Multitenancy support — PR #24
+   - Team model + tenant isolation for hosts/networks/devices
+   - Alembic migration 0004 for teams table
+   - RBAC updated: team-scoped roles
+   - Very high complexity — iterative approach
 
 ## Done (this session / recent)
+- Integration test suite (auth/vault/inventory flows, live PostgreSQL, CI green) ✅ — PR #23
+- fix: verify_password catches UnknownHashError for plain-text admin password ✅
 - Login rate limiting (Redis sliding window, 5 failures → HTTP 429) ✅
 - Credential vault API (AES-256-GCM, POST/GET/DELETE/decrypt) ✅
 - Alembic migration 0003 for credentials table ✅

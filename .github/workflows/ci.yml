@@ -60,6 +60,7 @@ jobs:
             tests/test_vault.py \
             tests/test_docgen.py \
             tests/test_deploy.py \
+            tests/test_teams_api.py \
             --deselect tests/test_task_engine.py::TestTasksAPI \
             -v --tb=short --junit-xml=test-results.xml
         continue-on-error: true
