@@ -37,6 +37,7 @@ from server.api.audit_log import router as audit_log_router
 from server.api.vault import router as vault_router
 from server.api.docs_api import router as docs_router
 from server.api.deploy import router as deploy_router
+from server.api.teams import router as teams_router
 from server.middleware.setup_guard import SetupGuardMiddleware
 
 # Must be called before any other module creates a logger.
@@ -181,6 +182,7 @@ app.include_router(audit_log_router)
 app.include_router(vault_router)
 app.include_router(docs_router)
 app.include_router(deploy_router)
+app.include_router(teams_router)
 
 # Serve the React SPA — static assets first, then index.html catch-all
 _ui_dir = Path(__file__).parent / "static" / "ui"
