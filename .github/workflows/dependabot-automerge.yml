@@ -1,0 +1,129 @@
+name: Dependabot Auto-merge
+
+# Runs after the "CI" workflow completes on a Dependabot PR.
+# Using workflow_run avoids re-running tests — we reuse the CI result.
+# Patch and minor updates are approved and merged automatically.
+# Major version bumps are left for human review.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  automerge:
+    name: Auto-merge when CI passes
+    runs-on: ubuntu-latest
+
+    # Only proceed when:
+    #   1. CI passed
+    #   2. The commit was pushed by dependabot[bot]
+    #   3. The trigger was a pull_request event (not a direct push)
+    if: |
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.actor.login == 'dependabot[bot]' &&
+      github.event.workflow_run.event == 'pull_request'
+
+    steps:
+      # ── 1. Find the open PR that corresponds to this workflow run ────────
+      - name: Find Dependabot PR
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const headSha = context.payload.workflow_run.head_sha;
+
+            const { data: prs } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+            });
+
+            const pr = prs.find(p => p.head.sha === headSha);
+
+            if (!pr) {
+              core.notice(`No open PR found for SHA ${headSha} — skipping auto-merge`);
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            if (!pr.head.ref.startsWith('dependabot/')) {
+              core.notice(`PR #${pr.number} is not a Dependabot branch — skipping`);
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            core.info(`Found Dependabot PR #${pr.number}: ${pr.title}`);
+            core.setOutput('skip', 'false');
+            core.setOutput('number', String(pr.number));
+            core.setOutput('url', pr.html_url);
+
+      # ── 2. Read the update type from Dependabot metadata ─────────────────
+      - name: Fetch Dependabot metadata
+        id: meta
+        if: steps.pr.outputs.skip == 'false'
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          pr-number: ${{ steps.pr.outputs.number }}
+
+      # ── 3. Log what we found (useful for debugging) ───────────────────────
+      - name: Log update info
+        if: steps.pr.outputs.skip == 'false'
+        run: |
+          echo "PR       : ${{ steps.pr.outputs.url }}"
+          echo "Package  : ${{ steps.meta.outputs.dependency-names }}"
+          echo "Type     : ${{ steps.meta.outputs.update-type }}"
+          echo "Ecosystem: ${{ steps.meta.outputs.package-ecosystem }}"
+
+      # ── 4. Approve the PR (using the Actions bot, not dependabot itself) ──
+      - name: Approve PR
+        if: |
+          steps.pr.outputs.skip == 'false' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr review --approve "$PR_URL"
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 5. Merge the PR (squash, so the default branch stays linear) ──────
+      #    Major version bumps are intentionally excluded — they may contain
+      #    breaking changes and should be reviewed by a human.
+      - name: Merge PR
+        if: |
+          steps.pr.outputs.skip == 'false' &&
+          (steps.meta.outputs.update-type == 'version-update:semver-patch' ||
+           steps.meta.outputs.update-type == 'version-update:semver-minor')
+        run: gh pr merge --squash "$PR_URL"
+        env:
+          PR_URL: ${{ steps.pr.outputs.url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ── 6. Comment on major updates so they don't go unnoticed ───────────
+      - name: Comment on major update (needs human review)
+        if: |
+          steps.pr.outputs.skip == 'false' &&
+          steps.meta.outputs.update-type == 'version-update:semver-major'
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: Number('${{ steps.pr.outputs.number }}'),
+              body: [
+                '## ⚠️ Major version bump — human review required',
+                '',
+                `**Package:** \`${{ steps.meta.outputs.dependency-names }}\``,
+                `**Update type:** \`${{ steps.meta.outputs.update-type }}\``,
+                '',
+                'CI passed, but this is a **major version bump** that may contain breaking changes.',
+                'Auto-merge is disabled for major updates. Please review and merge manually.',
+              ].join('\n'),
+            });
