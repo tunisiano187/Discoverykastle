@@ -182,34 +182,6 @@ app.include_router(vault_router)
 app.include_router(docs_router)
 app.include_router(deploy_router)
 
-# Serve the React SPA — static assets first, then index.html catch-all
-_ui_dir = Path(__file__).parent / "static" / "ui"
-if _ui_dir.exists():
-    app.mount("/assets", StaticFiles(directory=str(_ui_dir / "assets")), name="ui-assets")
-
-
-@app.get("/{path:path}", include_in_schema=False)
-async def spa_fallback(path: str) -> FileResponse:
-    """Serve the React SPA for all non-API routes."""
-    index = _ui_dir / "index.html"
-    if not index.exists():
-        from fastapi import HTTPException
-        raise HTTPException(status_code=404, detail="UI not built")
-    return FileResponse(str(index))
-
-
-@app.get("/sw.js", include_in_schema=False)
-async def service_worker() -> FileResponse:
-    """
-    Serve the service worker from the root path.
-    Required so the SW scope covers the entire app (not just /static/).
-    """
-    return FileResponse(
-        str(_static_dir / "sw.js"),
-        media_type="application/javascript",
-        headers={"Service-Worker-Allowed": "/"},
-    )
-
 
 @app.get("/health")
 async def health() -> dict:
@@ -235,3 +207,34 @@ async def health() -> dict:
         "modules": len(registry.list_modules()),
         "checks": checks,
     }
+
+
+# Serve the React SPA — static assets first, then index.html catch-all
+# IMPORTANT: /health and /sw.js must be registered BEFORE /{path:path} so the
+# catch-all doesn't shadow them.
+_ui_dir = Path(__file__).parent / "static" / "ui"
+if _ui_dir.exists():
+    app.mount("/assets", StaticFiles(directory=str(_ui_dir / "assets")), name="ui-assets")
+
+
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker() -> FileResponse:
+    """
+    Serve the service worker from the root path.
+    Required so the SW scope covers the entire app (not just /static/).
+    """
+    return FileResponse(
+        str(_static_dir / "sw.js"),
+        media_type="application/javascript",
+        headers={"Service-Worker-Allowed": "/"},
+    )
+
+
+@app.get("/{path:path}", include_in_schema=False)
+async def spa_fallback(path: str) -> FileResponse:
+    """Serve the React SPA for all non-API routes."""
+    index = _ui_dir / "index.html"
+    if not index.exists():
+        from fastapi import HTTPException
+        raise HTTPException(status_code=404, detail="UI not built")
+    return FileResponse(str(index))
