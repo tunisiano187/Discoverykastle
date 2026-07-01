@@ -1,11 +1,12 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-06-28
+Last updated: 2026-07-01
 
 ## Currently open PR
-- PR #24 on branch `claude/multitenancy-hy2ann` — multitenancy foundation (teams/projects model + DB migration)
+- PR on branch `claude/initial-project-documentation-ogkzS` — ROADMAP update, CI green at 382 tests
 
 ## Recently merged
+- PR #24: feat: multitenancy foundation — teams + memberships CRUD — merged 2026-07-01
 - PR #23: feat(tests): end-to-end integration test suite against live PostgreSQL — merged 2026-06-28
 - PR #21: fix(vault): GitGuardian suppression + Credential model export — merged 2026-06-28
 - PR #19: feat: credential vault, rate limiting, docs generator, agent auto-deploy, 346 tests — merged 2026-06-07
@@ -18,38 +19,46 @@ Last updated: 2026-06-28
 
 ## Todo (prioritized — pick from the top)
 
-1. [IN PROGRESS] Multitenancy support — PR #24
-   - Team model + tenant isolation for hosts/networks/devices
-   - Alembic migration 0004 for teams table
-   - RBAC updated: team-scoped roles
-   - Very high complexity — iterative approach
+1. **Isolation tenant complète** — filter hosts/networks/devices by team_id
+   - Add `team_id` FK to Host, Network, NetworkDevice models
+   - Alembic migration for the new FKs
+   - API middleware to scope queries to the caller's team
+   - Medium complexity
+
+2. **Page Teams dans le SPA** — React UI for team management
+   - List teams, create, delete
+   - Member management (add/remove)
+   - Team-scoped views of inventory
+   - Medium complexity
+
+3. **SNMP collector** — enrich network devices without SSH
+   - `agent/collectors/snmp_collector.py` using pysnmp
+   - OID mappings for Cisco/Juniper/generic
+   - Submit to `POST /api/v1/data/discovery`
+   - Medium complexity
+
+4. **Alertes automatiques CVE** — auto-alert on critical CVEs
+   - Background task in alerts module: compare installed packages against new CVEs
+   - Webhook/email notification
+   - Medium complexity
+
+5. **Hardening TLS** — mTLS between server and agents + cert rotation
+   - Auto-rotate agent certs before expiry
+   - Enforce cert validation on inbound agent connections
+   - High complexity
 
 ## Done (this session / recent)
-- Integration test suite (auth/vault/inventory flows, live PostgreSQL, CI green) ✅ — PR #23
-- fix: verify_password catches UnknownHashError for plain-text admin password ✅
-- Login rate limiting (Redis sliding window, 5 failures → HTTP 429) ✅
-- Credential vault API (AES-256-GCM, POST/GET/DELETE/decrypt) ✅
-- Alembic migration 0003 for credentials table ✅
-- Documentation generator (GET /api/v1/docs/summary|network|device|export) ✅
-- Agent auto-deployment via SSH (POST /api/v1/deploy/{host_id}) ✅
-- CI at 346 tests passing ✅
+- Merged main into `claude/initial-project-documentation-ogkzS` — CI at 382 tests ✅
+- Dependabot auto-merge workflow (patch/minor → auto-approve+squash, major → human review) ✅
+- CI permissions fix (issues: write for auto-issue creation) ✅
+- Multitenancy foundation — Teams + memberships CRUD + 13 tests ✅ — PR #24
+- Integration test suite (auth/vault/inventory flows, live PostgreSQL) ✅ — PR #23
+- Login rate limiting (Redis sliding window) ✅
+- Credential vault API (AES-256-GCM) ✅
+- Documentation generator ✅
+- Agent auto-deployment via SSH ✅
+- RBAC multi-user system ✅
+- Full nmap + Alembic + LDAP/AD + CVE scan + all SPA pages ✅
 
 ## Done (older)
-- RBAC multi-user system (viewer/analyst/operator/admin roles) — PR #16
-- Audit log read API (GET /api/v1/audit-log, admin only) — PR #16
-- User management CRUD API (/api/v1/users, admin only) — PR #16
-- Alembic migration 0002 for users table — PR #16
-- Admin CLI (dkctl) + agent Docker image — PR #15
-- Test suite (151+ tests) + GitHub Actions CI — PR #14
-- Ansible agent collector + Netmiko + Devices SPA — PR #13
-- CVE scanner agent collector + Networks/Topology SPA — PR #12
-- nmap collector + Alembic migrations + LDAP/AD module — PR #11
-- dkctl admin CLI + SMTP/Slack notifications — PR #15
-- Vulnerability read API — PR #8
-- Task engine (AgentTask state machine, retry/timeout) — PR #7
-- WebSocket task dispatch + dashboard real-time events — PR #6
-- Full data ingestion API — PR #5
-- Agent registration, CA, JWT auth, auto-update — PR #4
-- Server foundation, all DB models, Inventory/Alerts/Topology APIs
-- Module system, setup wizard, WebPush, AI enrichment, DNS enrichment
-- Docker Compose, install scripts
+- All server foundation, modules, APIs, agent, install scripts
