@@ -3,9 +3,10 @@
 Last updated: 2026-07-12
 
 ## Currently open PR
-- PR #25 on branch `claude/gifted-babbage-et0eai` — Authorization Requests API (in review)
+- None
 
 ## Recently merged
+- PR #25: feat(api): Authorization Requests API — human-in-the-loop for recursive discovery — merged 2026-07-12
 - PR #24: feat: multitenancy foundation — teams & memberships CRUD — merged 2026-06-28
 - PR #23: feat(tests): end-to-end integration test suite against live PostgreSQL — merged 2026-06-28
 - PR #21: fix(vault): GitGuardian suppression + Credential model export — merged 2026-06-24
@@ -38,7 +39,7 @@ Last updated: 2026-07-12
    - agent/collectors/cve_scan.py exists; add NVD API fallback when Grype absent
 
 ## Done (this session / recent)
-- Authorization Requests API (POST/GET/approve/deny, 22 tests) — PR #25
+- Authorization Requests API (POST/GET/approve/deny, 22 tests) — PR #25 ✅
 - Multitenancy foundation: Team + TeamMembership models, CRUD API — PR #24
 - Integration test suite (auth/vault/inventory flows, live PostgreSQL, CI green) — PR #23
 
