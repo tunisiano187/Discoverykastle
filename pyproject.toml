@@ -90,6 +90,12 @@ include = ["server*", "modules*"]
 target-version = "py312"
 line-length = 100
 
+[tool.ruff.lint]
+# SIM117 (nested `with` → single `with`) varies in default enablement across
+# ruff versions and generates hundreds of findings on pre-existing code.
+# Explicitly ignore it to keep CI green regardless of the installed ruff version.
+ignore = ["SIM117"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "session"
