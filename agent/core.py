@@ -22,6 +22,7 @@ import sys
 import httpx
 
 from agent.config import AgentConfig
+from agent.updater import self_update
 
 logger = logging.getLogger(__name__)
 
@@ -202,11 +203,25 @@ class DKAgent:
             try:
                 async with self._build_client() as client:
                     resp = await client.post(
-                        f"/api/v1/agents/{cfg.agent_id}/heartbeat"
+                        f"/api/v1/agents/{cfg.agent_id}/heartbeat",
+                        json={"agent_version": _agent_version()},
                     )
                     resp.raise_for_status()
                     consecutive_failures = 0
-                    logger.debug("Heartbeat OK")
+                    data = resp.json()
+                    logger.debug("Heartbeat OK (server_version=%s)", data.get("server_version"))
+
+                    if data.get("agent_update_required"):
+                        update_target = data.get("agent_update_target")
+                        logger.info(
+                            "Server requests agent update (target=%s). Starting self-update…",
+                            update_target or "latest",
+                        )
+                        try:
+                            await asyncio.to_thread(self_update, update_target)
+                        except Exception as upd_exc:
+                            logger.error("Self-update failed: %s — continuing with current version", upd_exc)
+
             except httpx.HTTPStatusError as exc:
                 consecutive_failures += 1
                 logger.warning(
