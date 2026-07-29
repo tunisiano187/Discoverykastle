@@ -123,6 +123,7 @@ async def list_vulns(
     severity: str | None = Query(default=None, description="Filter by severity level"),
     host_id: uuid.UUID | None = Query(default=None, description="Filter by host UUID"),
     cve_id: str | None = Query(default=None, description="Filter by CVE ID (exact match)"),
+    team_id: uuid.UUID | None = Query(default=None, description="Filter by team UUID"),
     limit: int = Query(default=100, le=500),
     offset: int = Query(default=0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -134,6 +135,7 @@ async def list_vulns(
     - ``severity``: one of ``critical``, ``high``, ``medium``, ``low``, ``none``
     - ``host_id``: restrict to a single host
     - ``cve_id``: exact CVE ID match (e.g. ``CVE-2024-1234``)
+    - ``team_id``: restrict to hosts belonging to a specific team
     - ``limit`` / ``offset``: pagination (default 100, max 500)
 
     Results are ordered by CVSS score descending (nulls last), then severity.
@@ -151,6 +153,8 @@ async def list_vulns(
         q = q.where(Vulnerability.host_id == host_id)
     if cve_id:
         q = q.where(Vulnerability.cve_id == cve_id.upper())
+    if team_id:
+        q = q.where(Host.team_id == team_id)
 
     rows = await db.execute(q)
     return [_vuln_out(v, h) for v, h in rows]
@@ -160,6 +164,7 @@ async def list_vulns(
 async def vuln_summary(
     operator: Annotated[str, Depends(require_operator)],
     top_n: int = Query(default=10, le=50, description="Number of top CVEs to return"),
+    team_id: uuid.UUID | None = Query(default=None, description="Scope summary to a specific team"),
     db: AsyncSession = Depends(get_db),
 ) -> VulnSummary:
     """
@@ -171,10 +176,15 @@ async def vuln_summary(
     - ``affected_hosts``: distinct hosts with at least one CVE
     - ``by_severity``: count per severity level
     - ``top_cves``: top N CVEs ranked by affected host count
+    - ``team_id``: optional — scope all counts to hosts belonging to this team
     """
+    base_q = select(Vulnerability).join(Host, Vulnerability.host_id == Host.id)
+    if team_id:
+        base_q = base_q.where(Host.team_id == team_id)
+
     # --- Aggregate counts ---
     totals_row = await db.execute(
-        select(
+        base_q.with_only_columns(
             func.count(Vulnerability.id).label("total"),
             func.count(distinct(Vulnerability.cve_id)).label("unique_cves"),
             func.count(distinct(Vulnerability.host_id)).label("affected_hosts"),
@@ -184,8 +194,10 @@ async def vuln_summary(
 
     # --- Per-severity counts ---
     sev_rows = await db.execute(
-        select(Vulnerability.severity, func.count(Vulnerability.id).label("cnt"))
-        .group_by(Vulnerability.severity)
+        base_q.with_only_columns(
+            Vulnerability.severity,
+            func.count(Vulnerability.id).label("cnt"),
+        ).group_by(Vulnerability.severity)
     )
     by_sev: dict[str, int] = {row.severity: row.cnt for row in sev_rows}
     severity_counts = SeverityCount(
@@ -199,10 +211,9 @@ async def vuln_summary(
 
     # --- Top CVEs by distinct affected host count ---
     top_rows = await db.execute(
-        select(
+        base_q.with_only_columns(
             Vulnerability.cve_id,
             func.count(distinct(Vulnerability.host_id)).label("affected_hosts"),
-            # Pick the most severe severity reported for this CVE
             func.max(Vulnerability.severity).label("severity"),
             func.max(Vulnerability.cvss_score).label("cvss_score"),
         )

@@ -14,6 +14,9 @@ class Network(Base):
     description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     domain_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     discovered_via_host_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("hosts.id"), nullable=True)
+    team_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("teams.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     scan_authorized: Mapped[bool] = mapped_column(Boolean, default=False)
     scan_depth: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
