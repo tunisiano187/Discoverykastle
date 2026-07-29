@@ -122,6 +122,7 @@ class InventoryStats(BaseModel):
 async def list_hosts(
     os: str | None = Query(None, description="Filter by OS (partial match)"),
     ip: str | None = Query(None, description="Filter by IP address"),
+    team_id: uuid.UUID | None = Query(None, description="Filter by team UUID"),
     limit: int = Query(200, ge=1, le=2000),
     offset: int = Query(0, ge=0),
     db: AsyncSession = Depends(get_db),
@@ -131,6 +132,8 @@ async def list_hosts(
         stmt = stmt.where(Host.os.ilike(f"%{os}%"))
     if ip:
         stmt = stmt.where(Host.ip_addresses.contains([ip]))
+    if team_id:
+        stmt = stmt.where(Host.team_id == team_id)
     result = await db.execute(stmt)
     return list(result.scalars())
 
@@ -171,11 +174,14 @@ async def get_host(host_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Ho
 @router.get("/networks", response_model=list[NetworkOut])
 async def list_networks(
     authorized_only: bool = Query(False),
+    team_id: uuid.UUID | None = Query(None, description="Filter by team UUID"),
     db: AsyncSession = Depends(get_db),
 ) -> list[NetworkOut]:
     stmt = select(Network).order_by(Network.cidr)
     if authorized_only:
         stmt = stmt.where(Network.scan_authorized == True)  # noqa: E712
+    if team_id:
+        stmt = stmt.where(Network.team_id == team_id)
     result = await db.execute(stmt)
     networks = list(result.scalars())
     return [
@@ -381,20 +387,30 @@ async def get_device(device_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -
 # ------------------------------------------------------------------
 
 @router.get("/stats", response_model=InventoryStats)
-async def inventory_stats(db: AsyncSession = Depends(get_db)) -> InventoryStats:
-    total_hosts = await db.scalar(select(func.count()).select_from(Host)) or 0
-    total_networks = await db.scalar(select(func.count()).select_from(Network)) or 0
+async def inventory_stats(
+    team_id: uuid.UUID | None = Query(None, description="Scope stats to a specific team"),
+    db: AsyncSession = Depends(get_db),
+) -> InventoryStats:
+    host_q = select(func.count()).select_from(Host)
+    net_q = select(func.count()).select_from(Network)
+    vuln_q = select(Vulnerability.severity, func.count()).group_by(Vulnerability.severity)
+    os_q = select(Host.os, func.count()).where(Host.os.isnot(None)).group_by(Host.os)
+
+    if team_id:
+        host_q = host_q.where(Host.team_id == team_id)
+        net_q = net_q.where(Network.team_id == team_id)
+        vuln_q = vuln_q.join(Host, Vulnerability.host_id == Host.id).where(Host.team_id == team_id)
+        os_q = os_q.where(Host.team_id == team_id)
+
+    total_hosts = await db.scalar(host_q) or 0
+    total_networks = await db.scalar(net_q) or 0
     total_devices = await db.scalar(select(func.count()).select_from(NetworkDevice)) or 0
     total_vulns = await db.scalar(select(func.count()).select_from(Vulnerability)) or 0
 
-    vuln_rows = await db.execute(
-        select(Vulnerability.severity, func.count()).group_by(Vulnerability.severity)
-    )
+    vuln_rows = await db.execute(vuln_q)
     vuln_by_severity = {row[0]: row[1] for row in vuln_rows}
 
-    os_rows = await db.execute(
-        select(Host.os, func.count()).where(Host.os.isnot(None)).group_by(Host.os)
-    )
+    os_rows = await db.execute(os_q)
     os_distribution = {row[0]: row[1] for row in os_rows}
 
     return InventoryStats(
