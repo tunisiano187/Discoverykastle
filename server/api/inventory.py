@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict
@@ -18,7 +19,9 @@ from server.models.network import Network
 from server.models.device import NetworkDevice
 from server.models.vulnerability import Vulnerability
 from server.models.agent import AuthorizationRequest
+from server.models.team import Team
 from server.modules.registry import registry
+from server.services.auth import require_operator
 from server.services.ip_utils import classify_cidr, cidr_contains_public_ips
 
 router = APIRouter(prefix="/api/v1/inventory", tags=["inventory"])
@@ -38,6 +41,10 @@ class ServiceOut(BaseModel):
     version: str | None
 
 
+class TeamAssignment(BaseModel):
+    team_id: uuid.UUID | None = None
+
+
 class HostSummary(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -46,6 +53,7 @@ class HostSummary(BaseModel):
     ip_addresses: list[str]
     os: str | None
     os_version: str | None
+    team_id: uuid.UUID | None = None
     first_seen: datetime
     last_seen: datetime
 
@@ -70,6 +78,7 @@ class NetworkOut(BaseModel):
     scan_depth: int
     # "private" | "public" | "mixed" | "unknown" — derived from the CIDR
     ip_class: str = "unknown"
+    team_id: uuid.UUID | None = None
     created_at: datetime
 
 
@@ -167,6 +176,34 @@ async def get_host(host_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -> Ho
     )
 
 
+@router.patch("/hosts/{host_id}/team", response_model=HostSummary)
+async def assign_host_team(
+    host_id: uuid.UUID,
+    body: TeamAssignment,
+    _: Annotated[str, Depends(require_operator)],
+    db: AsyncSession = Depends(get_db),
+) -> Host:
+    """
+    Assign or unassign a host to/from a team.
+
+    Pass ``{"team_id": "<uuid>"}`` to assign, or ``{"team_id": null}`` to unassign.
+    Requires operator role.
+    """
+    host = await db.get(Host, host_id)
+    if not host:
+        raise HTTPException(status_code=404, detail="Host not found")
+
+    if body.team_id is not None:
+        team = await db.get(Team, body.team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+    host.team_id = body.team_id
+    await db.commit()
+    await db.refresh(host)
+    return host
+
+
 # ------------------------------------------------------------------
 # Networks
 # ------------------------------------------------------------------
@@ -193,10 +230,49 @@ async def list_networks(
             scan_authorized=n.scan_authorized,
             scan_depth=n.scan_depth,
             ip_class=classify_cidr(n.cidr),
+            team_id=n.team_id,
             created_at=n.created_at,
         )
         for n in networks
     ]
+
+
+@router.patch("/networks/{network_id}/team", response_model=NetworkOut)
+async def assign_network_team(
+    network_id: uuid.UUID,
+    body: TeamAssignment,
+    _: Annotated[str, Depends(require_operator)],
+    db: AsyncSession = Depends(get_db),
+) -> NetworkOut:
+    """
+    Assign or unassign a network to/from a team.
+
+    Pass ``{"team_id": "<uuid>"}`` to assign, or ``{"team_id": null}`` to unassign.
+    Requires operator role.
+    """
+    network = await db.get(Network, network_id)
+    if not network:
+        raise HTTPException(status_code=404, detail="Network not found")
+
+    if body.team_id is not None:
+        team = await db.get(Team, body.team_id)
+        if not team:
+            raise HTTPException(status_code=404, detail="Team not found")
+
+    network.team_id = body.team_id
+    await db.commit()
+    await db.refresh(network)
+    return NetworkOut(
+        id=network.id,
+        cidr=network.cidr,
+        description=network.description,
+        domain_name=network.domain_name,
+        scan_authorized=network.scan_authorized,
+        scan_depth=network.scan_depth,
+        ip_class=classify_cidr(network.cidr),
+        team_id=network.team_id,
+        created_at=network.created_at,
+    )
 
 
 @router.post("/networks/{network_id}/request-public-scan", response_model=AuthorizationRequestOut)
