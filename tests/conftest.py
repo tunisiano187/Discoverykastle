@@ -27,16 +27,32 @@ for _name in [
     if _name not in sys.modules:
         _stub_module(_name)
 
-# Stub jose so server.services.auth can be imported without the full
-# cryptography native stack (which has broken Rust bindings in this env).
-# encode round-trips via json so decode_token recovers the original payload.
-if "jose" not in sys.modules:
+# Stub jose and passlib ONLY when the native cryptography extension is broken.
+#
+# In CI (GitHub Actions) all packages are properly installed and working.
+# In the dev container the `cryptography` Rust extension (loaded via _cffi_backend)
+# is broken — importing jose triggers a Rust thread panic (PanicException).
+#
+# We detect the broken environment by probing _cffi_backend with a plain
+# ImportError (not a Rust panic) BEFORE touching jose/cryptography.
+
+def _cffi_available() -> bool:
+    """Return True if the _cffi_backend C extension loads cleanly."""
+    try:
+        import _cffi_backend  # noqa: F401
+        return True
+    except (ImportError, ModuleNotFoundError):
+        return False
+
+
+if not _cffi_available():
+    # Native crypto stack is broken — stub jose and passlib so auth-service
+    # imports work without the cryptography native extension.
     import json as _json
+    from datetime import datetime as _datetime
 
     _jose = _stub_module("jose")
     _jose.JWTError = Exception
-
-    from datetime import datetime as _datetime
 
     def _fake_jwt_encode(payload, *args, **kwargs):
         safe = {k: v.isoformat() if isinstance(v, _datetime) else v for k, v in payload.items()}
@@ -51,8 +67,6 @@ if "jose" not in sys.modules:
     _stub_module("jose.jwt")
     _stub_module("jose.exceptions")
 
-# Stub passlib.context so CryptContext imports work.
-if "passlib" not in sys.modules:
     _passlib = _stub_module("passlib")
     _passlib_ctx = _stub_module("passlib.context")
     _ctx_cls = MagicMock()
