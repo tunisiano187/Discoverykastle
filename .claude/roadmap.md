@@ -1,38 +1,36 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-07-29
+Last updated: 2026-08-03
 
 ## Currently open PR
-- PR feat/team-scoped-isolation — in progress (being pushed this run)
-  - Adds `team_id` FK to hosts/networks (migration 0005), `?team_id=` filtering on inventory + vulns APIs, 15 unit tests
+- PR claude/gifted-babbage-hhngmb: feat(inventory): team assignment API — PATCH hosts/{id}/team and networks/{id}/team
+  - Status: waiting for review
 
 ## Recently merged
+- PR #29: feat(multitenancy): team-scoped data isolation — migration 0005 + API ?team_id= filtering — merged 2026-07-29
 - PR #28: feat(agent): wire self-update into heartbeat loop — merged 2026-07-25
+- PR #27: chore(deps-dev): bump @babel/core — merged 2026-07-31
+- PR #26: chore(deps-dev): bump vite — merged 2026-07-31
 - PR #25: feat(api): Authorization Requests API — merged 2026-07-12
-- PR #24: feat: multitenancy foundation — teams & memberships CRUD — merged 2026-06-28
-- PR #23: feat(tests): end-to-end integration test suite against live PostgreSQL — merged 2026-06-28
 
 ## Todo (prioritized — pick from the top)
 
-1. [HIGH] Auth Requests UI page in React SPA
-   - API exists (`/api/v1/auth-requests`) but there is no dedicated React page
-   - Show pending/approved/denied requests, approve/deny buttons for operators
-   - Networks.tsx may already have a tab — verify and add if missing
-
-2. [HIGH] Team assignment API — allow assigning hosts/networks to teams
-   - Migration 0005 adds the FK; need `PATCH /api/v1/inventory/hosts/{id}/team`
-   - Also: include `team_id` in data ingestion POST body so agents can tag hosts on submission
-
-3. [MEDIUM] Windows agent support (pywin32 WMI collectors)
+1. [MEDIUM] Windows agent support (pywin32 WMI collectors)
    - `agent/install/windows/service.py` exists; needs psutil + WMI collectors
    - CIS hardening checks via WMI / registry
 
-4. [LOW] Vuln summary UI: team-scoped stats panel
-   - `/api/v1/vulns/summary?team_id=` now supported; wire into the frontend
+2. [LOW] Vuln summary UI: team-scoped stats panel
+   - `/api/v1/vulns/summary?team_id=` now supported; wire into the frontend dashboard
+
+3. [LOW] conftest.py jose stub — verify CI is not impacted
+   - Added jose/passlib stubs to make tests run without native crypto in dev env
+   - CI uses proper venv with working crypto — stubs are no-ops when jose is already loaded
 
 ## Done
 
-- Team-scoped data isolation (migration 0005 + model FKs + API ?team_id= filtering, 15 tests) — feat/team-scoped-isolation
+- Team assignment API: PATCH /inventory/hosts/{id}/team + /networks/{id}/team + team_id in HostRecord (15 tests) — claude/gifted-babbage-hhngmb (open PR)
+- Team-scoped data isolation (migration 0005 + model FKs + API ?team_id= filtering, 15 tests) — PR #29
+- Auth Requests UI in Networks.tsx (tab with approve/deny) — already implemented
 - Agent auto-update wired into heartbeat loop (8 tests) — PR #28
 - Authorization Requests API (POST/GET/approve/deny, 22 tests) — PR #25
 - Multitenancy foundation: Team + TeamMembership models, CRUD API — PR #24
