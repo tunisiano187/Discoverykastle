@@ -7,13 +7,8 @@ tests run on any platform without real Windows APIs.
 
 from __future__ import annotations
 
-import json
 import sys
-from io import BytesIO
-from typing import Any
 from unittest.mock import MagicMock, patch
-
-import pytest
 
 # ---------------------------------------------------------------------------
 # Helpers that stub Windows-only modules before importing the collector
@@ -125,8 +120,6 @@ class TestCollectInstalledPackages:
         assert packages == []
 
     def test_parses_registry_entries(self) -> None:
-        from agent.collectors.windows_collector import _collect_installed_packages
-
         winreg_stub = _make_winreg_stub()
 
         # EnumKey yields one sub-key then raises OSError to stop iteration
@@ -539,8 +532,9 @@ class TestWindowsCollectorRunSync:
 
 class TestAgentConfigWindows:
     def test_windows_disabled_by_default(self) -> None:
+        import os
+        import tempfile
         from agent.config import AgentConfig
-        import tempfile, os
         with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write("")
             fname = f.name
@@ -551,8 +545,9 @@ class TestAgentConfigWindows:
             os.unlink(fname)
 
     def test_windows_enabled_via_env(self) -> None:
+        import os
+        import tempfile
         from agent.config import AgentConfig
-        import tempfile, os
         with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write("")
             fname = f.name
@@ -564,8 +559,9 @@ class TestAgentConfigWindows:
             os.unlink(fname)
 
     def test_windows_sync_interval_default(self) -> None:
+        import os
+        import tempfile
         from agent.config import AgentConfig
-        import tempfile, os
         with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write("")
             fname = f.name
@@ -576,8 +572,9 @@ class TestAgentConfigWindows:
             os.unlink(fname)
 
     def test_windows_cis_checks_enabled_by_default(self) -> None:
+        import os
+        import tempfile
         from agent.config import AgentConfig
-        import tempfile, os
         with tempfile.NamedTemporaryFile(mode="w", suffix=".conf", delete=False) as f:
             f.write("")
             fname = f.name

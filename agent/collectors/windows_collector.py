@@ -42,7 +42,7 @@ import socket
 import ssl
 import sys
 import urllib.request
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 logger = logging.getLogger(__name__)
@@ -175,7 +175,7 @@ def _collect_installed_packages() -> list[InstalledPackage]:
                     except OSError:
                         break
                     try:
-                        with winreg.OpenKey(root, subkey_name) as subkey:
+                        with winreg.OpenKey(root, subkey_name):
                             name = _winreg_get(hive, f"{path}\\{subkey_name}", "DisplayName")
                             version = _winreg_get(hive, f"{path}\\{subkey_name}", "DisplayVersion")
                             publisher = _winreg_get(hive, f"{path}\\{subkey_name}", "Publisher")
@@ -400,7 +400,6 @@ def _check_screen_lock() -> list[CISFinding]:
 
 def _check_bitlocker() -> list[CISFinding]:
     """BL-01 — BitLocker enabled on system drive."""
-    import platform
     system_drive = os.environ.get("SystemDrive", "C:")
 
     protected = False
