@@ -294,6 +294,24 @@ class AgentConfig:
     def netmiko_redact_config(self) -> bool:
         return self._get("NETMIKO_REDACT_CONFIG", "true").lower() not in ("0", "false", "no")
 
+    # ---- Windows collector ----
+
+    @property
+    def windows_enabled(self) -> bool:
+        return self._get("WINDOWS_COLLECTOR_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    @property
+    def windows_sync_interval(self) -> int:
+        return int(self._get("WINDOWS_SYNC_INTERVAL", "3600"))
+
+    @property
+    def windows_submit_packages(self) -> bool:
+        return self._get("WINDOWS_SUBMIT_PACKAGES", "true").lower() not in ("0", "false", "no")
+
+    @property
+    def windows_cis_checks(self) -> bool:
+        return self._get("WINDOWS_CIS_CHECKS", "true").lower() not in ("0", "false", "no")
+
     # ---- Persistence ----
 
     def save(self, updates: dict[str, str]) -> None:

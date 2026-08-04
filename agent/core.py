@@ -184,6 +184,15 @@ class DKAgent:
                 "Netmiko collector disabled (set NETMIKO_ENABLED=true to enable)"
             )
 
+        if cfg.windows_enabled:
+            tasks.append(
+                asyncio.create_task(self._windows_loop(), name="windows-collector")
+            )
+        elif sys.platform == "win32":
+            logger.info(
+                "Windows collector disabled (set WINDOWS_COLLECTOR_ENABLED=true to enable)"
+            )
+
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
@@ -453,6 +462,46 @@ class DKAgent:
             ssl_ctx=ssl_ctx,
             timeout=cfg.netmiko_timeout,
             redact_config=cfg.netmiko_redact_config,
+        ).run_sync()
+
+
+    # ------------------------------------------------------------------
+    # Windows WMI collector loop
+    # ------------------------------------------------------------------
+
+    async def _windows_loop(self) -> None:
+        cfg = self.config
+        logger.info(
+            "Windows collector active — sync every %ds", cfg.windows_sync_interval
+        )
+        while True:
+            try:
+                await asyncio.to_thread(self._run_windows_sync)
+            except Exception:
+                logger.exception("Windows collector cycle failed")
+            await asyncio.sleep(cfg.windows_sync_interval)
+
+    def _run_windows_sync(self) -> None:
+        import ssl as _ssl
+        from agent.collectors.windows_collector import WindowsCollector
+
+        cfg = self.config
+        ssl_ctx: _ssl.SSLContext | None = None
+        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
+            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
+            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
+            if cfg.agent_ca:
+                ssl_ctx.load_verify_locations(cfg.agent_ca)
+            else:
+                ssl_ctx.check_hostname = False
+                ssl_ctx.verify_mode = _ssl.CERT_NONE
+
+        WindowsCollector(
+            server_url=cfg.server_url,
+            agent_id=cfg.agent_id,
+            ssl_ctx=ssl_ctx,
+            submit_packages=cfg.windows_submit_packages,
+            run_cis_checks=cfg.windows_cis_checks,
         ).run_sync()
 
 
