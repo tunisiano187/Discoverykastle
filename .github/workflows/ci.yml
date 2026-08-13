@@ -25,14 +25,14 @@ jobs:
           pip install --upgrade pip
           # Install only what the tests need — avoids building heavy native
           # extensions (asyncpg, cryptography/bcrypt, etc.) that are mocked.
-          # python-jose and passlib are installed without extras to avoid cffi/C-extension issues.
-          # HS256 only needs Python stdlib hmac; bcrypt is handled by passlib's pbkdf2 fallback.
+          # PyJWT uses stdlib hmac for HS256 — no cffi/C-extension needed.
+          # bcrypt is handled by passlib's pbkdf2 fallback in test environments.
           pip install \
             pytest>=8 pytest-asyncio>=0.23 httpx>=0.27 ruff>=0.4 \
             fastapi>=0.111 pydantic>=2.7 "pydantic-settings>=2.3" \
             "sqlalchemy[asyncio]>=2.0" pyyaml>=6.0 \
             jinja2>=3.1 \
-            "passlib>=1.7" "python-jose>=3.3" "ecdsa>=0.18" "rsa>=4.0"
+            "passlib>=1.7" "PyJWT>=2.9"
 
       - name: Lint (ruff)
         run: ruff check .
@@ -194,8 +194,8 @@ jobs:
             fastapi>=0.111 pydantic>=2.7 "pydantic-settings>=2.3" \
             "sqlalchemy[asyncio]>=2.0" "asyncpg>=0.29" "alembic>=1.13" \
             pyyaml>=6.0 jinja2>=3.1 \
-            "passlib>=1.7" "python-jose>=3.3" "ecdsa>=0.18" "rsa>=4.0" \
-            "cryptography>=42"
+            "passlib>=1.7" "PyJWT>=2.9" \
+            "cryptography>=50"
 
       - name: Run Alembic migrations
         run: alembic upgrade head
