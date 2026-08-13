@@ -1,11 +1,12 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-08-04
+Last updated: 2026-08-13
 
 ## Currently open PR
-- PR claude/vuln-summary-ui: feat(ui): team-scoped vuln stats panel on Dashboard + Vulns pages
+- PR claude/gifted-babbage-hhngmb: feat(ui): CVE host-level drill-down slide-over panel
 
 ## Recently merged
+- PR #33: feat(ui): team-scoped vuln stats panel on Dashboard + Vulns pages — merged 2026-08-13
 - PR #31: feat(agent): Windows WMI collector with CIS Level-1 hardening checks — merged 2026-08-04
 - PR #30: feat(inventory): team assignment API — PATCH hosts/{id}/team and networks/{id}/team — merged 2026-08-04
 - PR #29: feat(multitenancy): team-scoped data isolation — migration 0005 + API ?team_id= filtering — merged 2026-07-29
@@ -14,20 +15,17 @@ Last updated: 2026-08-04
 
 ## Todo (prioritized — pick from the top)
 
-1. [MEDIUM] Vuln summary UI: host-level drill-down
-   - Click a CVE row in the vuln table → show all affected hosts in a slide-over panel
-   - Endpoint: GET /api/v1/vulns/{cve_id} already exists
-
-2. [MEDIUM] Windows agent — installer script
+1. [MEDIUM] Windows agent — installer script
    - PowerShell install.ps1 that sets up the Windows service (pywin32), writes agent.conf,
      and starts DiscoverykastleAgent
 
-3. [LOW] Hosts page: team assignment UI
+2. [LOW] Hosts page: team assignment UI
    - PATCH /inventory/hosts/{id}/team is wired; add a team picker in the host detail view
 
 ## Done
 
-- Vuln summary UI: team-scoped stats panel + team filter on Dashboard and Vulns pages — claude/vuln-summary-ui (open PR)
+- Vuln summary UI: CVE host-level drill-down (CveSlideOver component, click any CVE row) — claude/gifted-babbage-hhngmb (open PR)
+- Vuln summary UI: team-scoped stats panel + team filter on Dashboard and Vulns pages — PR #33
 - Windows WMI collector + 14 CIS Level-1 checks (32 tests) — PR #31
 - Team assignment API: PATCH /inventory/hosts/{id}/team + /networks/{id}/team (15 tests) — PR #30
 - conftest.py jose/passlib stubs scoped to broken-crypto envs only (fixes CI) — PR #30
