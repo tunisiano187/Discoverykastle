@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getVulnSummary, VulnSummary } from "../api/vulns";
 import { getAgents, Agent } from "../api/agents";
 import { getTeams, Team } from "../api/teams";
 import { useDashboardWS } from "../hooks/useDashboardWS";
 import SeverityBadge from "../components/SeverityBadge";
+import CveSlideOver from "../components/CveSlideOver";
 
 const SEV_ORDER = ["critical", "high", "medium", "low", "none", "unknown"] as const;
 const SEV_BAR_COLOR: Record<string, string> = {
@@ -29,6 +30,7 @@ export default function Dashboard() {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [teams, setTeams] = useState<Team[]>([]);
   const [teamId, setTeamId] = useState("");
+  const [selectedCve, setSelectedCve] = useState<string | null>(null);
   const { connectedAgents, events, connected } = useDashboardWS();
 
   // Load agents and teams once on mount
@@ -49,6 +51,14 @@ export default function Dashboard() {
     : 0;
 
   const selectedTeam = teams.find((t) => t.id === teamId);
+
+  const handleCveClick = useCallback((cveId: string) => {
+    setSelectedCve(cveId);
+  }, []);
+
+  const handleCloseSlideOver = useCallback(() => {
+    setSelectedCve(null);
+  }, []);
 
   return (
     <div className="p-6 space-y-6">
@@ -129,7 +139,7 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Top CVEs */}
+        {/* Top CVEs — click any row to open the host drill-down */}
         {summary && summary.top_cves.length > 0 && (
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-4 space-y-2">
             <h2 className="text-sm font-semibold text-gray-300">
@@ -140,13 +150,18 @@ export default function Dashboard() {
             </h2>
             <div className="space-y-1">
               {summary.top_cves.slice(0, 8).map((c) => (
-                <div key={c.cve_id} className="flex items-center justify-between text-sm py-1 border-b border-surface-2 last:border-0">
-                  <span className="text-brand font-mono text-xs">{c.cve_id}</span>
+                <button
+                  key={c.cve_id}
+                  onClick={() => handleCveClick(c.cve_id)}
+                  className="w-full flex items-center justify-between text-sm py-1 border-b border-surface-2 last:border-0 hover:bg-surface-2 rounded px-1 -mx-1 transition-colors group"
+                  title={`Click to see all hosts affected by ${c.cve_id}`}
+                >
+                  <span className="font-mono text-xs text-brand group-hover:underline">{c.cve_id}</span>
                   <div className="flex items-center gap-3">
                     <SeverityBadge severity={c.severity} />
                     <span className="text-gray-400 text-xs w-16 text-right">{c.affected_hosts} hosts</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -169,6 +184,11 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* CVE drill-down slide-over */}
+      {selectedCve && (
+        <CveSlideOver cveId={selectedCve} onClose={handleCloseSlideOver} />
+      )}
     </div>
   );
 }

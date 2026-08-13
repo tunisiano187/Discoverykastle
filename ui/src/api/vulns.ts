@@ -36,6 +36,24 @@ export interface VulnSummary {
   top_cves: TopCve[];
 }
 
+export interface AffectedHost {
+  host_id: string;
+  fqdn: string | null;
+  ip_addresses: string[];
+  package_id: string | null;
+  first_seen: string;
+}
+
+export interface CveDetail {
+  cve_id: string;
+  severity: string;
+  cvss_score: number | null;
+  description: string | null;
+  remediation: string | null;
+  affected_host_count: number;
+  affected_hosts: AffectedHost[];
+}
+
 export const getVulns = (params?: {
   severity?: string;
   team_id?: string;
@@ -55,3 +73,6 @@ export const getVulnSummary = (team_id?: string) => {
   const qs = team_id ? `?team_id=${encodeURIComponent(team_id)}` : "";
   return apiFetch<VulnSummary>(`/api/v1/vulns/summary${qs}`);
 };
+
+export const getCveDetail = (cveId: string) =>
+  apiFetch<CveDetail>(`/api/v1/vulns/${encodeURIComponent(cveId)}`);

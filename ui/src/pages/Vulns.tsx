@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getVulns, getVulnSummary, VulnOut, VulnSummary } from "../api/vulns";
 import { getTeams, Team } from "../api/teams";
 import SeverityBadge from "../components/SeverityBadge";
+import CveSlideOver from "../components/CveSlideOver";
 
 const SEVERITIES = ["", "critical", "high", "medium", "low", "none"];
 
@@ -13,6 +14,7 @@ export default function Vulns() {
   const [teamId, setTeamId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [selectedCve, setSelectedCve] = useState<string | null>(null);
 
   // Load teams once for the filter dropdown
   useEffect(() => {
@@ -36,6 +38,14 @@ export default function Vulns() {
       .catch((e: unknown) => setError(String(e)))
       .finally(() => setLoading(false));
   }, [severity, teamId]);
+
+  const handleCveClick = useCallback((cveId: string) => {
+    setSelectedCve(cveId);
+  }, []);
+
+  const handleCloseSlideOver = useCallback(() => {
+    setSelectedCve(null);
+  }, []);
 
   return (
     <div className="p-6 space-y-5">
@@ -133,8 +143,15 @@ export default function Vulns() {
                 </tr>
               ) : (
                 vulns.map((v) => (
-                  <tr key={v.id} className="border-b border-surface-2 last:border-0 hover:bg-surface-2 transition-colors">
-                    <td className="px-4 py-3 font-mono text-xs text-brand whitespace-nowrap">{v.cve_id}</td>
+                  <tr
+                    key={v.id}
+                    className="border-b border-surface-2 last:border-0 hover:bg-surface-2 transition-colors cursor-pointer"
+                    onClick={() => handleCveClick(v.cve_id)}
+                    title={`Click to see all hosts affected by ${v.cve_id}`}
+                  >
+                    <td className="px-4 py-3 font-mono text-xs text-brand whitespace-nowrap hover:underline">
+                      {v.cve_id}
+                    </td>
                     <td className="px-4 py-3">
                       <SeverityBadge severity={v.severity} />
                     </td>
@@ -156,6 +173,11 @@ export default function Vulns() {
             </tbody>
           </table>
         </div>
+      )}
+
+      {/* CVE drill-down slide-over */}
+      {selectedCve && (
+        <CveSlideOver cveId={selectedCve} onClose={handleCloseSlideOver} />
       )}
     </div>
   );
