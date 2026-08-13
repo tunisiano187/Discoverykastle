@@ -44,7 +44,7 @@ class TestJWTTokens:
 
     def test_legacy_token_defaults_to_admin(self) -> None:
         """Tokens without a role claim (pre-RBAC) are treated as admin."""
-        from jose import jwt
+        import jwt
         from datetime import datetime, timedelta, timezone
 
         payload = {
