@@ -25,11 +25,11 @@ dependencies = [
     "httpx>=0.27",
 
     # Auth
-    "python-jose[cryptography]>=3.3",
+    "PyJWT>=2.9",
     "passlib[bcrypt]>=1.7",
 
     # Crypto (CA / mTLS)
-    "cryptography>=42",
+    "cryptography>=50",
 
     # Redis
     "redis>=5.0",
