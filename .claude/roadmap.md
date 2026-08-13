@@ -1,34 +1,36 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-08-03
+Last updated: 2026-08-04
 
 ## Currently open PR
-- PR claude/gifted-babbage-hhngmb: feat(inventory): team assignment API — PATCH hosts/{id}/team and networks/{id}/team
-  - Status: waiting for review
+- PR claude/vuln-summary-ui: feat(ui): team-scoped vuln stats panel on Dashboard + Vulns pages
 
 ## Recently merged
+- PR #31: feat(agent): Windows WMI collector with CIS Level-1 hardening checks — merged 2026-08-04
+- PR #30: feat(inventory): team assignment API — PATCH hosts/{id}/team and networks/{id}/team — merged 2026-08-04
 - PR #29: feat(multitenancy): team-scoped data isolation — migration 0005 + API ?team_id= filtering — merged 2026-07-29
 - PR #28: feat(agent): wire self-update into heartbeat loop — merged 2026-07-25
-- PR #27: chore(deps-dev): bump @babel/core — merged 2026-07-31
-- PR #26: chore(deps-dev): bump vite — merged 2026-07-31
 - PR #25: feat(api): Authorization Requests API — merged 2026-07-12
 
 ## Todo (prioritized — pick from the top)
 
-1. [MEDIUM] Windows agent support (pywin32 WMI collectors)
-   - `agent/install/windows/service.py` exists; needs psutil + WMI collectors
-   - CIS hardening checks via WMI / registry
+1. [MEDIUM] Vuln summary UI: host-level drill-down
+   - Click a CVE row in the vuln table → show all affected hosts in a slide-over panel
+   - Endpoint: GET /api/v1/vulns/{cve_id} already exists
 
-2. [LOW] Vuln summary UI: team-scoped stats panel
-   - `/api/v1/vulns/summary?team_id=` now supported; wire into the frontend dashboard
+2. [MEDIUM] Windows agent — installer script
+   - PowerShell install.ps1 that sets up the Windows service (pywin32), writes agent.conf,
+     and starts DiscoverykastleAgent
 
-3. [LOW] conftest.py jose stub — verify CI is not impacted
-   - Added jose/passlib stubs to make tests run without native crypto in dev env
-   - CI uses proper venv with working crypto — stubs are no-ops when jose is already loaded
+3. [LOW] Hosts page: team assignment UI
+   - PATCH /inventory/hosts/{id}/team is wired; add a team picker in the host detail view
 
 ## Done
 
-- Team assignment API: PATCH /inventory/hosts/{id}/team + /networks/{id}/team + team_id in HostRecord (15 tests) — claude/gifted-babbage-hhngmb (open PR)
+- Vuln summary UI: team-scoped stats panel + team filter on Dashboard and Vulns pages — claude/vuln-summary-ui (open PR)
+- Windows WMI collector + 14 CIS Level-1 checks (32 tests) — PR #31
+- Team assignment API: PATCH /inventory/hosts/{id}/team + /networks/{id}/team (15 tests) — PR #30
+- conftest.py jose/passlib stubs scoped to broken-crypto envs only (fixes CI) — PR #30
 - Team-scoped data isolation (migration 0005 + model FKs + API ?team_id= filtering, 15 tests) — PR #29
 - Auth Requests UI in Networks.tsx (tab with approve/deny) — already implemented
 - Agent auto-update wired into heartbeat loop (8 tests) — PR #28
