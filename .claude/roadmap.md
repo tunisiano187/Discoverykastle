@@ -1,6 +1,6 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-08-23
+Last updated: 2026-08-30
 
 ## Currently open PR
 
@@ -17,6 +17,7 @@ None.
 
 ## Recently merged
 
+- PR #36: docs(roadmap): sync recent merges, record Dependabot API 403 — merged 2026-08-28
 - PR #35: fix(deps): replace python-jose with PyJWT, bump aiohttp/cryptography/react-router — merged 2026-08-13
 - PR #34: feat(ui): CVE host-level drill-down slide-over panel — merged 2026-08-13
 - PR #33: feat(ui): team-scoped vuln stats panel on Dashboard and Vulns pages — merged 2026-08-13
@@ -26,7 +27,6 @@ None.
 - PR #29: feat(multitenancy): team-scoped data isolation — migration 0005 + API ?team_id= filtering — merged 2026-07-29
 - PR #28: feat(agent): wire self-update into heartbeat loop — merged 2026-07-25
 - PR #27: chore(deps-dev): bump @babel/core from 7.29.0 to 7.29.7 — merged 2026-07-31
-- PR #26: chore(deps-dev): bump vite from 6.4.2 to 8.2.0 — merged 2026-07-31
 
 ## Todo — prioritized
 
@@ -39,6 +39,7 @@ None.
 
 ## Done
 
+- docs(roadmap): sync recent merges, record Dependabot API 403 — PR #36
 - fix(deps): replace python-jose with PyJWT, bump aiohttp/cryptography/react-router — PR #35
 - Vuln summary UI: CVE host-level drill-down (CveSlideOver component) — PR #34
 - Vuln summary UI: team-scoped stats panel + team filter on Dashboard and Vulns pages — PR #33
