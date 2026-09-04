@@ -1,6 +1,6 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-08-30
+Last updated: 2026-09-04
 
 ## Currently open PR
 
@@ -8,11 +8,14 @@ None.
 
 ## Dependabot status
 
-- Unable to retrieve Dependabot alerts
+- Unable to retrieve Dependabot alerts via API
 - Error: 403 — "Resource not accessible by integration" (`GET /repos/tunisiano187/Discoverykastle/dependabot/alerts`)
 - Cause: Insufficient permissions — the integration token does not have access to Dependabot alerts for this repository
-- Security prioritization could not be completed safely
-- **No feature PR has been created in this run because the security status cannot be verified**
+- **Partial information from git push output**: GitHub reported 1 vulnerability on the default branch — alert #18, severity LOW
+  - Alert URL: https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
+  - Full details (package, CVE, patched version) inaccessible due to 403
+- Security prioritization could not be completed safely for full alert list
+- **No feature PR has been created in this run because the security status cannot be fully verified**
 - Recommended action: grant the integration read access to Dependabot alerts in the repository settings, or re-connect the GitHub connector under claude.ai Settings → Connectors
 
 ## Recently merged
@@ -30,11 +33,12 @@ None.
 
 ## Todo — prioritized
 
-1. [SECURITY] Verify Dependabot alert status — API returned 403; fix integration permissions first
-2. [MEDIUM] Windows agent — installer script
+1. [SECURITY][LOW] Dependabot alert #18 — details inaccessible (403); visit https://github.com/tunisiano187/Discoverykastle/security/dependabot/18 to view and fix
+2. [ACTION REQUIRED] Fix integration permissions — grant read access to Dependabot alerts so automated runs can address security issues
+3. [MEDIUM] Windows agent — installer script
    - PowerShell install.ps1 that sets up the Windows service (pywin32), writes agent.conf,
      and starts DiscoverykastleAgent
-3. [LOW] Hosts page: team assignment UI
+4. [LOW] Hosts page: team assignment UI
    - PATCH /inventory/hosts/{id}/team is wired; add a team picker in the host detail view
 
 ## Done
