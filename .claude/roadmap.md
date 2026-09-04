@@ -4,22 +4,30 @@ Last updated: 2026-09-04
 
 ## Currently open PR
 
-None.
+- PR #39: fix(deps): update browserslist to address Dependabot alert #19
+  - Security-related: yes
+  - Dependabot alert: #19
+  - Branch: security/dependabot-browserslist-19
+  - Status: open
+  - Notes: browserslist upgraded from 4.28.2 → 4.28.8 via npm overrides; npm audit clean
+
+## Open Dependabot alerts
+
+- [IN PROGRESS] Alert #19 — browserslist (npm) — prototype pollution / DoS — handled by PR #39
+- [LOW] Alert #18 — package unknown (API returns 403, details inaccessible) — https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
 
 ## Dependabot status
 
-- Unable to retrieve Dependabot alerts via API
-- Error: 403 — "Resource not accessible by integration" (`GET /repos/tunisiano187/Discoverykastle/dependabot/alerts`)
-- Cause: Insufficient permissions — the integration token does not have access to Dependabot alerts for this repository
-- **Partial information from git push output**: GitHub reported 1 vulnerability on the default branch — alert #18, severity LOW
-  - Alert URL: https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
-  - Full details (package, CVE, patched version) inaccessible due to 403
-- Security prioritization could not be completed safely for full alert list
-- **No feature PR has been created in this run because the security status cannot be fully verified**
-- Recommended action: grant the integration read access to Dependabot alerts in the repository settings, or re-connect the GitHub connector under claude.ai Settings → Connectors
+- Dependabot alerts API returns 403 for this integration — full alert list unavailable
+- Partial information obtained from git push output and user: alerts #18 (low) and #19 (browserslist) confirmed open
+- Alert #19 addressed in PR #39
+- Alert #18 details inaccessible; manual review required at https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
+- Recommended action: grant the integration read access to Dependabot alerts in the repository settings
 
 ## Recently merged
 
+- PR #38: docs(roadmap): sync state — note Dependabot alert #18, record PR #36 merge — merged 2026-09-04
+- PR #37: chore(deps): Dependabot npm group update — merged 2026-09-04
 - PR #36: docs(roadmap): sync recent merges, record Dependabot API 403 — merged 2026-08-28
 - PR #35: fix(deps): replace python-jose with PyJWT, bump aiohttp/cryptography/react-router — merged 2026-08-13
 - PR #34: feat(ui): CVE host-level drill-down slide-over panel — merged 2026-08-13
@@ -28,12 +36,10 @@ None.
 - PR #31: feat(agent): Windows WMI collector with CIS Level-1 hardening checks — merged 2026-08-04
 - PR #30: feat(inventory): team assignment API — PATCH hosts/{id}/team + networks/{id}/team — merged 2026-08-04
 - PR #29: feat(multitenancy): team-scoped data isolation — migration 0005 + API ?team_id= filtering — merged 2026-07-29
-- PR #28: feat(agent): wire self-update into heartbeat loop — merged 2026-07-25
-- PR #27: chore(deps-dev): bump @babel/core from 7.29.0 to 7.29.7 — merged 2026-07-31
 
 ## Todo — prioritized
 
-1. [SECURITY][LOW] Dependabot alert #18 — details inaccessible (403); visit https://github.com/tunisiano187/Discoverykastle/security/dependabot/18 to view and fix
+1. [SECURITY][LOW] Dependabot alert #18 — details inaccessible (403); visit https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
 2. [ACTION REQUIRED] Fix integration permissions — grant read access to Dependabot alerts so automated runs can address security issues
 3. [MEDIUM] Windows agent — installer script
    - PowerShell install.ps1 that sets up the Windows service (pywin32), writes agent.conf,
@@ -43,6 +49,9 @@ None.
 
 ## Done
 
+- fix(deps): update browserslist 4.28.2 → 4.28.8 (alert #19) — PR #39
+- docs(roadmap): sync state — note Dependabot alert #18, record PR #36 merge — PR #38
+- chore(deps): Dependabot npm group update — PR #37
 - docs(roadmap): sync recent merges, record Dependabot API 403 — PR #36
 - fix(deps): replace python-jose with PyJWT, bump aiohttp/cryptography/react-router — PR #35
 - Vuln summary UI: CVE host-level drill-down (CveSlideOver component) — PR #34
