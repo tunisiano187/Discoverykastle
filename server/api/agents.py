@@ -7,6 +7,9 @@ Registration (no JWT — uses one-time enrollment token):
 Heartbeat (mTLS — agent cert fingerprint in header):
   POST /api/v1/agents/{id}/heartbeat
 
+Certificate renewal (mTLS — authenticated by current cert fingerprint):
+  POST /api/v1/agents/{id}/cert/renew
+
 Operator endpoints (JWT required):
   GET    /api/v1/agents
   GET    /api/v1/agents/{id}
@@ -205,6 +208,13 @@ async def register_agent(
     )
 
 
+class CertRenewResponse(BaseModel):
+    """New certificate issued by the embedded CA."""
+    certificate: str
+    private_key: str
+    ca_certificate: str
+
+
 class HeartbeatRequest(BaseModel):
     """Optional body sent by the agent with its current version."""
     agent_version: str | None = None
@@ -243,6 +253,40 @@ async def heartbeat(
         ok=True,
         server_version=current_version(),
         agent_update_required=needs_update,
+    )
+
+
+@router.post("/{agent_id}/cert/renew", response_model=CertRenewResponse)
+async def renew_agent_cert(
+    agent_id: uuid.UUID,
+    x_agent_fingerprint: Annotated[str | None, Header(alias="X-Agent-Fingerprint")] = None,
+    x_agent_id: Annotated[str | None, Header(alias="X-Agent-ID")] = None,
+    db: AsyncSession = Depends(get_db),
+) -> CertRenewResponse:
+    """
+    Renew the calling agent's mTLS certificate.
+
+    The agent must authenticate with its current certificate fingerprint
+    (``X-Agent-Fingerprint``) or its agent UUID (``X-Agent-ID`` fallback).
+    A fresh EC key-pair and certificate are issued, the stored fingerprint is
+    updated, and the new PEMs are returned.  The old certificate is immediately
+    invalidated.
+
+    Agents should call this endpoint when their certificate is within
+    ``CERT_RENEW_DAYS`` (default 14) days of expiry.
+    """
+    agent = await _resolve_agent(db, agent_id, x_agent_fingerprint, x_agent_id)
+
+    issued = ca.issue(str(agent.id))
+    fingerprint = ca.fingerprint(issued.cert_pem)
+    agent.certificate_fingerprint = fingerprint
+    await db.commit()
+
+    logger.info("Certificate renewed for agent %s (new fingerprint: %s)", agent_id, fingerprint)
+    return CertRenewResponse(
+        certificate=issued.cert_pem,
+        private_key=issued.key_pem,
+        ca_certificate=ca.root_cert_pem,
     )
 
 

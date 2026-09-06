@@ -12,12 +12,14 @@ All HTTP calls use mTLS after enrollment.
 from __future__ import annotations
 
 import asyncio
+import datetime
 import logging
 import os
 import platform
 import socket
 import ssl
 import sys
+from pathlib import Path
 
 import httpx
 
@@ -25,6 +27,64 @@ from agent.config import AgentConfig
 from agent.updater import self_update
 
 logger = logging.getLogger(__name__)
+
+# Number of days before cert expiry at which the agent proactively renews.
+_CERT_RENEW_DAYS = 14
+
+
+def _cert_days_remaining(cert_path: str | Path) -> int | None:
+    """
+    Return the number of days until the PEM certificate at *cert_path* expires,
+    or None if the file cannot be read / parsed.
+
+    Compatible with cryptography ≥ 41.x.  The ``not_valid_after`` property
+    returns a naive UTC datetime on 41.x; ``not_valid_after_utc`` (timezone-
+    aware) was added in 42.x.  We normalise to UTC either way.
+    """
+    try:
+        from cryptography import x509  # type: ignore[import]
+        pem = Path(cert_path).read_bytes()
+        cert = x509.load_pem_x509_certificate(pem)
+        # Use the timezone-aware variant when available (cryptography ≥ 42),
+        # fall back to the naive UTC property on 41.x.
+        if hasattr(cert, "not_valid_after_utc"):
+            expires = cert.not_valid_after_utc
+            now = datetime.datetime.now(tz=datetime.timezone.utc)
+        else:
+            expires = cert.not_valid_after  # type: ignore[attr-defined]
+            now = datetime.datetime.utcnow()
+        remaining = expires - now
+        return max(0, remaining.days)
+    except Exception as exc:
+        logger.debug("Could not read cert expiry from %s: %s", cert_path, exc)
+        return None
+
+
+def _build_ssl_ctx(cert: str | None, key: str | None, ca: str | None) -> ssl.SSLContext | None:
+    """
+    Build an :class:`ssl.SSLContext` for mTLS agent connections.
+
+    * If *cert* and *key* are provided, they are loaded as the client cert.
+    * If *ca* is provided, the server certificate is validated against it.
+      If *ca* is absent, hostname check and cert verification are disabled
+      (development / local mode only — logged as a warning).
+
+    Returns ``None`` when *cert* or *key* is not set (agent not yet enrolled).
+    """
+    if not cert or not key:
+        return None
+    ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+    ctx.load_cert_chain(cert, key)
+    if ca:
+        ctx.load_verify_locations(ca)
+    else:
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        logger.warning(
+            "mTLS: no CA certificate configured — server identity will NOT be verified. "
+            "Set DKASTLE_AGENT_CA to enforce full certificate validation."
+        )
+    return ctx
 
 
 class DKAgent:
@@ -39,16 +99,10 @@ class DKAgent:
     def _build_client(self, *, mtls: bool = True) -> httpx.AsyncClient:
         cfg = self.config
         if mtls and cfg.is_registered:
-            ssl_ctx = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
-            if cfg.agent_ca:
-                ssl_ctx.load_verify_locations(cfg.agent_ca)
-            else:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = ssl.CERT_NONE
+            ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
             return httpx.AsyncClient(
                 base_url=cfg.server_url,
-                verify=ssl_ctx,
+                verify=ssl_ctx or False,
                 timeout=30,
             )
         return httpx.AsyncClient(
@@ -56,6 +110,58 @@ class DKAgent:
             verify=bool(self.config.agent_ca) or False,
             timeout=30,
         )
+
+    # ------------------------------------------------------------------
+    # Certificate renewal
+    # ------------------------------------------------------------------
+
+    async def _renew_cert_if_needed(self) -> None:
+        """
+        Check certificate expiry and renew proactively if within *_CERT_RENEW_DAYS*.
+
+        Writes the new cert + key to the same paths used at enrollment and
+        updates the stored config so subsequent SSL contexts pick them up.
+        No-ops when the agent is not enrolled, the cert file is missing, or the
+        renewal request fails (logs a warning but does not crash).
+        """
+        cfg = self.config
+        if not cfg.is_registered or not cfg.agent_cert:
+            return
+
+        days = _cert_days_remaining(cfg.agent_cert)
+        if days is None:
+            return  # could not read cert — enroll will handle re-registration
+        if days > _CERT_RENEW_DAYS:
+            logger.debug("Agent cert valid for %d more day(s) — no renewal needed", days)
+            return
+
+        logger.info(
+            "Agent cert expires in %d day(s) — requesting renewal from server", days
+        )
+        try:
+            async with self._build_client() as client:
+                resp = await client.post(
+                    f"/api/v1/agents/{cfg.agent_id}/cert/renew",
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            cert_path = Path(cfg.agent_cert)
+            key_path = Path(cfg.agent_key)
+            cert_path.write_text(data["certificate"], encoding="utf-8")
+            key_path.write_text(data["private_key"], encoding="utf-8")
+            if sys.platform != "win32":
+                key_path.chmod(0o600)
+
+            # CA cert rarely changes but update it if the server sends a new one
+            if data.get("ca_certificate") and cfg.agent_ca:
+                Path(cfg.agent_ca).write_text(data["ca_certificate"], encoding="utf-8")
+
+            logger.info("Certificate successfully renewed — new cert written to %s", cert_path)
+        except Exception as exc:
+            logger.warning(
+                "Certificate renewal failed: %s — will retry on next heartbeat cycle", exc
+            )
 
     # ------------------------------------------------------------------
     # Enrollment
@@ -209,6 +315,9 @@ class DKAgent:
         consecutive_failures = 0
 
         while True:
+            # Proactively renew the mTLS cert before it expires
+            await self._renew_cert_if_needed()
+
             try:
                 async with self._build_client() as client:
                     resp = await client.post(
@@ -314,20 +423,10 @@ class DKAgent:
 
     def _run_nmap_scan(self) -> None:
         """Run one nmap scan cycle synchronously in a thread."""
-        import ssl as _ssl
         from agent.collectors.network_scan import NetworkScanCollector
 
         cfg = self.config
-
-        ssl_ctx: _ssl.SSLContext | None = None
-        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
-            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
-            if cfg.agent_ca:
-                ssl_ctx.load_verify_locations(cfg.agent_ca)
-            else:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = _ssl.CERT_NONE
+        ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
 
         collector = NetworkScanCollector(
             server_url=cfg.server_url,
@@ -357,20 +456,10 @@ class DKAgent:
 
     def _run_cve_scan(self) -> None:
         """Run one CVE scan cycle synchronously in a thread."""
-        import ssl as _ssl
         from agent.collectors.cve_scan import CVEScanCollector
 
         cfg = self.config
-
-        ssl_ctx: _ssl.SSLContext | None = None
-        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
-            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
-            if cfg.agent_ca:
-                ssl_ctx.load_verify_locations(cfg.agent_ca)
-            else:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = _ssl.CERT_NONE
+        ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
 
         collector = CVEScanCollector(
             server_url=cfg.server_url,
@@ -401,19 +490,10 @@ class DKAgent:
             await asyncio.sleep(cfg.ansible_sync_interval)
 
     def _run_ansible_sync(self) -> None:
-        import ssl as _ssl
         from agent.collectors.ansible import AnsibleFactCacheCollector
 
         cfg = self.config
-        ssl_ctx: _ssl.SSLContext | None = None
-        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
-            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
-            if cfg.agent_ca:
-                ssl_ctx.load_verify_locations(cfg.agent_ca)
-            else:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = _ssl.CERT_NONE
+        ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
 
         AnsibleFactCacheCollector(
             server_url=cfg.server_url,
@@ -441,19 +521,10 @@ class DKAgent:
             await asyncio.sleep(cfg.netmiko_sync_interval)
 
     def _run_netmiko_sync(self) -> None:
-        import ssl as _ssl
         from agent.collectors.netmiko_collector import NetmikoCollector
 
         cfg = self.config
-        ssl_ctx: _ssl.SSLContext | None = None
-        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
-            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
-            if cfg.agent_ca:
-                ssl_ctx.load_verify_locations(cfg.agent_ca)
-            else:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = _ssl.CERT_NONE
+        ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
 
         NetmikoCollector(
             server_url=cfg.server_url,
@@ -482,19 +553,10 @@ class DKAgent:
             await asyncio.sleep(cfg.windows_sync_interval)
 
     def _run_windows_sync(self) -> None:
-        import ssl as _ssl
         from agent.collectors.windows_collector import WindowsCollector
 
         cfg = self.config
-        ssl_ctx: _ssl.SSLContext | None = None
-        if cfg.is_registered and cfg.agent_cert and cfg.agent_key:
-            ssl_ctx = _ssl.SSLContext(_ssl.PROTOCOL_TLS_CLIENT)
-            ssl_ctx.load_cert_chain(cfg.agent_cert, cfg.agent_key)
-            if cfg.agent_ca:
-                ssl_ctx.load_verify_locations(cfg.agent_ca)
-            else:
-                ssl_ctx.check_hostname = False
-                ssl_ctx.verify_mode = _ssl.CERT_NONE
+        ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
 
         WindowsCollector(
             server_url=cfg.server_url,
