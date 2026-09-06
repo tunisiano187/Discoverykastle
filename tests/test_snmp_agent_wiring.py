@@ -8,7 +8,9 @@ All tests are fully mocked — no live SNMP, no network.
 from __future__ import annotations
 
 import asyncio
-from unittest.mock import AsyncMock, MagicMock, call, patch
+from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 # ===========================================================================
@@ -33,16 +35,12 @@ class TestSNMPConfig:
         assert cfg.snmp_enabled is False
 
     def test_snmp_enabled_via_env(self) -> None:
-        from agent.config import AgentConfig
-        cfg = AgentConfig.__new__(AgentConfig)
-        cfg._file = {}
-        cfg._env = {"SNMP_ENABLED": "true"}
-        # _get checks env first then _file; patch the environment lookup
         with patch.dict("os.environ", {"SNMP_ENABLED": "true"}):
-            cfg2 = AgentConfig.__new__(AgentConfig)
-            cfg2._file = {}
-            cfg2._env = {}
-            assert cfg2.snmp_enabled is True
+            from agent.config import AgentConfig
+            cfg = AgentConfig.__new__(AgentConfig)
+            cfg._file = {}
+            cfg._env = {}
+            assert cfg.snmp_enabled is True
 
     def test_snmp_defaults(self) -> None:
         cfg = self._make_config()
@@ -145,8 +143,8 @@ class TestRunSNMPPoll:
 
         # _run_snmp_poll lazy-imports SNMPCollector inside the function body,
         # so patch at the source module, not at agent.core.
-        with patch("agent.core._build_ssl_ctx", return_value=None):
-            with patch("agent.collectors.snmp_collector.SNMPCollector", mock_collector_cls):
+        with patch("agent.collectors.snmp_collector.SNMPCollector", mock_collector_cls):
+            with patch("agent.core._build_ssl_ctx", return_value=None):
                 agent._run_snmp_poll()
 
         call_kwargs = mock_collector_cls.call_args.kwargs
@@ -159,6 +157,7 @@ class TestRunSNMPPoll:
 # DKAgent — _snmp_loop async behaviour
 # ===========================================================================
 
+@pytest.mark.asyncio
 class TestSNMPLoop:
     """_snmp_loop calls _run_snmp_poll via to_thread and sleeps between cycles."""
 
@@ -168,33 +167,15 @@ class TestSNMPLoop:
         return cfg
 
     @staticmethod
-    async def _run_one_iteration(agent, poll_fn, poll_interval: int = 0) -> None:
-        """Run the SNMP loop for one iteration then cancel it."""
-        from agent.core import DKAgent
-
-        agent.config.snmp_poll_interval = poll_interval
-
-        loop_task = asyncio.create_task(agent._snmp_loop())
-        await asyncio.sleep(0)  # let the loop start
-        await asyncio.sleep(0)  # to_thread yield
-        loop_task.cancel()
-        try:
-            await loop_task
-        except asyncio.CancelledError:
-            pass
-
-    @staticmethod
-    def _make_agent_with_cfg(cfg: MagicMock) -> object:
+    def _make_agent(cfg: MagicMock) -> object:
         from agent.core import DKAgent
         agent = DKAgent.__new__(DKAgent)
         agent.config = cfg
         return agent
 
     async def test_loop_calls_run_poll_cycle_once(self) -> None:
-        from agent.core import DKAgent
-
         cfg = self._make_cfg()
-        agent = self._make_agent_with_cfg(cfg)
+        agent = self._make_agent(cfg)
 
         poll_called = asyncio.Event()
 
@@ -214,10 +195,8 @@ class TestSNMPLoop:
 
     async def test_loop_continues_after_poll_error(self) -> None:
         """A RuntimeError in _run_snmp_poll must not crash the loop."""
-        from agent.core import DKAgent
-
         cfg = self._make_cfg()
-        agent = self._make_agent_with_cfg(cfg)
+        agent = self._make_agent(cfg)
 
         call_count = 0
         second_call = asyncio.Event()
@@ -239,9 +218,3 @@ class TestSNMPLoop:
                 pass
 
         assert call_count >= 2
-
-
-import pytest
-
-# Re-run async tests as async
-TestSNMPLoop = pytest.mark.asyncio(TestSNMPLoop)
