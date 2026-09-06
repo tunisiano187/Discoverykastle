@@ -80,15 +80,22 @@ class TestHeartbeatSendsVersion:
         mock_client.__aexit__ = AsyncMock(return_value=False)
         mock_client.post = AsyncMock(side_effect=_fake_post)
 
+        # Stub out resource-metric collection (runs in a thread) so it
+        # resolves instantly and the heartbeat POST is reached before the
+        # task is cancelled.
+        _empty_metrics = {"cpu_percent": None, "memory_percent": None, "disk_percent": None}
         with patch.object(agent, "_build_client", return_value=mock_client):
             with patch("agent.core._agent_version", return_value="0.1.0"):
-                loop_task = asyncio.create_task(agent._heartbeat_loop())
-                await asyncio.sleep(0)
-                loop_task.cancel()
-                try:
-                    await loop_task
-                except asyncio.CancelledError:
-                    pass
+                with patch("agent.core._collect_resource_metrics", return_value=_empty_metrics):
+                    loop_task = asyncio.create_task(agent._heartbeat_loop())
+                    await asyncio.sleep(0)   # cert-renewal noop
+                    await asyncio.sleep(0)   # to_thread for metrics
+                    await asyncio.sleep(0)   # POST
+                    loop_task.cancel()
+                    try:
+                        await loop_task
+                    except asyncio.CancelledError:
+                        pass
 
         assert len(posted_bodies) >= 1
         assert posted_bodies[0].get("agent_version") == "0.1.0"

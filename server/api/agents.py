@@ -69,6 +69,10 @@ class AgentOut(BaseModel):
     status: str
     authorized_cidrs: list[str]
     last_heartbeat: datetime | None
+    # Resource metrics — None when the agent has not reported them yet
+    cpu_percent: float | None = None
+    memory_percent: float | None = None
+    disk_percent: float | None = None
     created_at: datetime
 
 
@@ -216,8 +220,13 @@ class CertRenewResponse(BaseModel):
 
 
 class HeartbeatRequest(BaseModel):
-    """Optional body sent by the agent with its current version."""
+    """Optional body sent by the agent with its current version and resource metrics."""
     agent_version: str | None = None
+    # Resource utilisation — collected via psutil on the agent host.
+    # Values are percentages (0.0–100.0).  Omitted when psutil is unavailable.
+    cpu_percent: float | None = None
+    memory_percent: float | None = None
+    disk_percent: float | None = None
 
 
 @router.post("/{agent_id}/heartbeat", response_model=HeartbeatResponse)
@@ -240,6 +249,14 @@ async def heartbeat(
     # Update stored version if the agent reports it in the heartbeat body.
     if body.agent_version and body.agent_version != agent.version:
         agent.version = body.agent_version
+
+    # Persist resource metrics when provided.
+    if body.cpu_percent is not None:
+        agent.cpu_percent = body.cpu_percent
+    if body.memory_percent is not None:
+        agent.memory_percent = body.memory_percent
+    if body.disk_percent is not None:
+        agent.disk_percent = body.disk_percent
 
     agent.last_heartbeat = datetime.utcnow()
     agent.status = "online"
