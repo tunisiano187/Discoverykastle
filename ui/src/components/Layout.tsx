@@ -9,6 +9,7 @@ const NAV_ITEMS = [
   { to: "/topology", label: "Topology", icon: "⟁" },
   { to: "/devices", label: "Devices", icon: "⊞" },
   { to: "/vulns", label: "Vulnerabilities", icon: "🛡" },
+  { to: "/teams", label: "Teams", icon: "👥" },
 ];
 
 export default function Layout() {
