@@ -6,12 +6,9 @@ boundary so the tests run in any environment, even without pysnmp installed.
 """
 from __future__ import annotations
 
-import json
 import sys
 import types
-from unittest.mock import MagicMock, patch, call
-
-import pytest
+from unittest.mock import MagicMock, patch
 
 # ---------------------------------------------------------------------------
 # Synthetic pysnmp stub so the import inside snmp_collector doesn't fail
@@ -68,8 +65,6 @@ from agent.collectors.snmp_collector import (  # noqa: E402
     _poll_device,
     _vendor_from_sysoid,
     _extract_model_from_descr,
-    _http_get_json,
-    _http_post_json,
     OID_IF_DESCR,
     OID_IF_OPER_STATUS,
     OID_IF_PHY_ADDRESS,
@@ -222,9 +217,12 @@ class TestPollDevice:
         session.get.return_value = sys_data
 
         def walk_side(oid):
-            if oid == OID_IF_DESCR:       return if_descr
-            if oid == OID_IF_OPER_STATUS:  return if_oper
-            if oid == OID_IF_PHY_ADDRESS:  return if_mac
+            if oid == OID_IF_DESCR:
+                return if_descr
+            if oid == OID_IF_OPER_STATUS:
+                return if_oper
+            if oid == OID_IF_PHY_ADDRESS:
+                return if_mac
             return {}
 
         session.walk.side_effect = walk_side
@@ -240,15 +238,16 @@ class TestPollDevice:
         sys_data = {".1.3.6.1.2.1.1.5.0": "sw"}
         if_descr  = {".1.3.6.1.2.1.2.2.1.2.2": "Ethernet0/1"}
         if_oper   = {".1.3.6.1.2.1.2.2.1.8.2": "2"}  # down
-        if_mac    = {}
 
         session = MagicMock(spec=_SNMPSession)
         session.available = True
         session.get.return_value = sys_data
 
         def walk_side(oid):
-            if oid == OID_IF_DESCR:      return if_descr
-            if oid == OID_IF_OPER_STATUS: return if_oper
+            if oid == OID_IF_DESCR:
+                return if_descr
+            if oid == OID_IF_OPER_STATUS:
+                return if_oper
             return {}
         session.walk.side_effect = walk_side
 
