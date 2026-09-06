@@ -4,14 +4,15 @@ Last updated: 2026-09-06
 
 ## Currently open PR
 
-- PR #45 on branch `claude/tls-hardening-ogkzS` — mTLS cert rotation (renew endpoint + agent auto-renewal, 20 tests)
+- PR #46 on branch `claude/initial-project-documentation-ogkzS` — fix(deps): nanoid 3.3.18 (Dependabot alert #18)
 
 ## Open Dependabot alerts
 
-- [LOW] Alert #18 — package unknown (API returns 403) — https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
+_(none)_
 
 ## Recently merged
 
+- PR #45: feat(tls): mTLS cert rotation — renew endpoint + agent auto-renewal, 20 tests — merged 2026-09-06
 - PR #44: feat(ui): Hosts page team assignment picker — merged 2026-09-06
 - PR #43: feat(agent): SNMP collector — v1/v2c/v3, OID mappings, 30 tests — merged 2026-09-06
 - PR #42: fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — merged 2026-09-06
@@ -29,10 +30,15 @@ Last updated: 2026-09-06
 
 ## Todo — prioritized
 
-1. [SECURITY][LOW] Dependabot alert #18 — review at https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
+1. **Collecteur nmap** — `agent/collectors/network_scan.py`
+2. **Alembic migrations** — remplacer `create_all()` par migrations incrémentales
+3. **Module LDAP/AD** — `server/modules/builtin/ldap/module.py`
+4. **CVE scan côté agent** — intégration Grype ou NVD API
+5. **Pages Networks + Topology + AuthRequests** dans le SPA React
 
 ## Done
 
+- fix(deps): nanoid 3.3.18 (Dependabot alert #18, GHSA-2v37-7h3g-55p8) — PR #46
 - feat(tls): mTLS cert rotation — renew endpoint + agent auto-renewal, 20 tests — PR #45
 - feat(ui): Hosts page team assignment picker — PR #44
 - feat(agent): SNMP collector — v1/v2c/v3, OID mappings, vendor/model detection, 30 tests — PR #43
