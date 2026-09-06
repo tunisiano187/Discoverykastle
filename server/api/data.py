@@ -48,6 +48,7 @@ from server.models.host import Host, Service, Package
 from server.models.network import Network, NetworkInterface, TopologyEdge, ScanResult
 from server.models.device import NetworkDevice
 from server.models.vulnerability import Vulnerability
+from server.modules.registry import registry
 
 logger = logging.getLogger(__name__)
 
@@ -494,6 +495,9 @@ async def ingest_vulnerabilities(
     upserted = 0
     errors = 0
 
+    # Collect (vuln, host) pairs for NEW vulns so we can fire alerts after commit.
+    new_vulns: list[tuple[Vulnerability, Host]] = []
+
     for rec in batch.vulnerabilities:
         try:
             host = await _resolve_host(db, rec.host_fqdn, rec.host_ip)
@@ -530,8 +534,9 @@ async def ingest_vulnerabilities(
                 )
             )
             vuln = result.scalar_one_or_none()
+            is_new = vuln is None
 
-            if vuln is None:
+            if is_new:
                 vuln = Vulnerability(
                     host_id=host.id,
                     package_id=package_id,
@@ -554,6 +559,12 @@ async def ingest_vulnerabilities(
                     vuln.package_id = package_id
 
             upserted += 1
+
+            # Queue alert dispatch for new high/critical vulns only.
+            # We only fire for new discoveries to avoid alert storms on re-scans.
+            if is_new and vuln.severity in ("critical", "high"):
+                new_vulns.append((vuln, host))
+
         except Exception:
             logger.exception("Failed to upsert vuln from agent %s", agent.id)
             errors += 1
@@ -561,6 +572,15 @@ async def ingest_vulnerabilities(
     await db.commit()
     logger.info("Vuln batch from agent %s: %d received, %d upserted, %d errors",
                 agent.id, len(batch.vulnerabilities), upserted, errors)
+
+    # Dispatch alerts for newly discovered high/critical CVEs.
+    # Runs after commit so the vuln rows have stable IDs.
+    for vuln, host in new_vulns:
+        try:
+            await registry.dispatch_vulnerability_found(vuln, host, db)
+        except Exception:
+            logger.exception("Alert dispatch failed for %s on host %s", vuln.cve_id, host.id)
+
     return IngestionResult(received=len(batch.vulnerabilities), upserted=upserted, errors=errors)
 
 
