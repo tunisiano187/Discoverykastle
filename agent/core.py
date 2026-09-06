@@ -320,9 +320,10 @@ class DKAgent:
 
             try:
                 async with self._build_client() as client:
+                    metrics = await asyncio.to_thread(_collect_resource_metrics)
                     resp = await client.post(
                         f"/api/v1/agents/{cfg.agent_id}/heartbeat",
-                        json={"agent_version": _agent_version()},
+                        json={"agent_version": _agent_version(), **metrics},
                     )
                     resp.raise_for_status()
                     consecutive_failures = 0
@@ -586,3 +587,20 @@ def _agent_version() -> str:
         return version("discoverykastle-agent")
     except Exception:
         return "dev"
+
+
+def _collect_resource_metrics() -> dict[str, float | None]:
+    """
+    Return current CPU, memory, and disk utilisation as percentages.
+
+    Uses ``psutil`` when available; falls back to ``None`` values so that
+    agents without psutil still send valid heartbeats.
+    """
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=0.1)
+        mem = psutil.virtual_memory().percent
+        disk = psutil.disk_usage("/").percent
+        return {"cpu_percent": cpu, "memory_percent": mem, "disk_percent": disk}
+    except Exception:
+        return {"cpu_percent": None, "memory_percent": None, "disk_percent": None}
