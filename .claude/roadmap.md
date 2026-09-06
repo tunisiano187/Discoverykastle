@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 
 ## Currently open PR
 
-- PR #43 on branch `claude/snmp-collector-ogkzS` — SNMP collector (v1/v2c/v3, OID mappings, 30 tests)
+- PR #44 on branch `claude/hosts-team-ui-ogkzS` — Hosts page team assignment picker
 
 ## Open Dependabot alerts
 
@@ -12,6 +12,7 @@ Last updated: 2026-09-06
 
 ## Recently merged
 
+- PR #43: feat(agent): SNMP collector — v1/v2c/v3, OID mappings, 30 tests — merged 2026-09-06
 - PR #42: fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — merged 2026-09-06
 - PR #41: feat(ui): Teams page — list, create, delete + member management — merged 2026-09-06
 - PR #40: chore: sync with main — browserslist fix merged, roadmap updated — merged 2026-09-06
@@ -29,13 +30,11 @@ Last updated: 2026-09-06
 
 1. [SECURITY][LOW] Dependabot alert #18 — review at https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
 
-2. [LOW] Hosts page: team assignment UI
-   - PATCH /inventory/hosts/{id}/team is wired; add team picker in host detail view
-
-3. [LOW] Hardening TLS — mTLS cert rotation + enforce cert validation on agent connections
+2. [LOW] Hardening TLS — mTLS cert rotation + enforce cert validation on agent connections
 
 ## Done
 
+- feat(ui): Hosts page team assignment picker — PR #44
 - feat(agent): SNMP collector — v1/v2c/v3, OID mappings, vendor/model detection, 30 tests — PR #43
 - fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — PR #42
 - feat(ui): Teams page — list/create/delete + member management (PR #41)
