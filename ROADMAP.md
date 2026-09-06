@@ -1,6 +1,6 @@
 # Discoverykastle — Roadmap & État du projet
 
-> Dernière mise à jour : mai 2026
+> Dernière mise à jour : juillet 2026
 
 ---
 
@@ -183,12 +183,22 @@
 
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
-| **Agent auto-déploiement** | Déploiement automatique sur hôtes découverts (avec autorisation) | Très haute |
+| ~~Agent auto-déploiement~~ | ✅ `server/api/deploy.py` + `server/services/deploy.py` — SSH via Paramiko | |
 | ~~Générateur de documentation~~ | ✅ `dkctl report` — export Markdown complet de l'infrastructure | |
-| **Support multitenancy** | Plusieurs équipes/projets dans la même instance | Très haute |
-| **Tests d'intégration end-to-end** | Couverture complète avec DB de test | Haute |
+| ~~Support multitenancy (fondations)~~ | ✅ `server/api/teams.py` + `server/models/team.py` — Teams + memberships CRUD | |
+| ~~Tests d'intégration end-to-end~~ | ✅ `tests/integration/` — auth/vault/inventory flows contre PostgreSQL live | |
 | ~~Package pip + image Docker agent~~ | ✅ `agent/pyproject.toml` + `agent/Dockerfile` + ghcr.io multi-arch | |
 | ~~Interface CLI admin~~ | ✅ `dkctl` — `server/cli/main.py` — gestion complète sans dashboard | |
+
+### Prochaines étapes (backlog)
+
+| Tâche | Raison | Complexité |
+|-------|--------|------------|
+| **Isolation tenant complète** | Filtrer hosts/networks/devices par team_id | Haute |
+| **Page Teams dans le SPA** | UI pour gérer les équipes et leurs membres | Moyenne |
+| **SNMP collector** | Enrichissement équipements sans SSH | Moyenne |
+| **Alertes automatiques CVE** | Notifier quand une nouvelle CVE critique impacte un host | Moyenne |
+| **Hardening TLS** | mTLS entre server et agents + rotation certs | Haute |
 
 ---
 
