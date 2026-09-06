@@ -1,64 +1,70 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-07-01
+Last updated: 2026-09-06
 
 ## Currently open PR
-- PR on branch `claude/initial-project-documentation-ogkzS` — ROADMAP update, CI green at 382 tests
+
+- PR on branch `claude/initial-project-documentation-ogkzS` — sync with main, roadmap update
+
+## Open Dependabot alerts
+
+- [LOW] Alert #18 — package unknown (API returns 403) — https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
 
 ## Recently merged
-- PR #24: feat: multitenancy foundation — teams + memberships CRUD — merged 2026-07-01
-- PR #23: feat(tests): end-to-end integration test suite against live PostgreSQL — merged 2026-06-28
-- PR #21: fix(vault): GitGuardian suppression + Credential model export — merged 2026-06-28
-- PR #19: feat: credential vault, rate limiting, docs generator, agent auto-deploy, 346 tests — merged 2026-06-07
-- PR #16: feat(auth): RBAC multi-user system + audit log API — merged
-- PR #15: feat: add dkctl admin CLI and agent Docker support — merged 2026-05-15
-- PR #14: feat: add comprehensive test suite + GitHub Actions CI — merged 2026-05-09
-- PR #13: feat: Ansible agent collector, Netmiko device collector, Devices SPA page — merged 2026-05-09
-- PR #12: feat: CVE scanner agent collector + Networks/Topology SPA pages — merged 2026-05-03
-- PR #11: feat: nmap collector, Alembic migrations, LDAP/AD module — merged 2026-05-03
 
-## Todo (prioritized — pick from the top)
+- PR #39: fix(deps): update browserslist → 4.28.8 (alert #19) — merged 2026-09-04
+- PR #38: docs(roadmap): sync state — merged 2026-09-04
+- PR #37: chore(deps): Dependabot npm group update — merged 2026-09-04
+- PR #36: docs(roadmap): sync recent merges — merged 2026-08-28
+- PR #35: fix(deps): replace python-jose with PyJWT, bump aiohttp/cryptography — merged 2026-08-13
+- PR #34: feat(ui): CVE host-level drill-down slide-over panel — merged 2026-08-13
+- PR #33: feat(ui): team-scoped vuln stats panel — merged 2026-08-13
+- PR #32: chore(deps): bump aiohttp 3.14.1→3.14.3 — merged 2026-08-13
+- PR #31: feat(agent): Windows WMI collector + CIS Level-1 hardening checks — merged 2026-08-04
+- PR #30: feat(inventory): team assignment API — PATCH hosts/{id}/team + networks/{id}/team — merged 2026-08-04
+- PR #29: feat(multitenancy): team-scoped data isolation (migration 0005) — merged 2026-07-29
 
-1. **Isolation tenant complète** — filter hosts/networks/devices by team_id
-   - Add `team_id` FK to Host, Network, NetworkDevice models
-   - Alembic migration for the new FKs
-   - API middleware to scope queries to the caller's team
-   - Medium complexity
+## Todo — prioritized
 
-2. **Page Teams dans le SPA** — React UI for team management
-   - List teams, create, delete
-   - Member management (add/remove)
-   - Team-scoped views of inventory
-   - Medium complexity
+1. [SECURITY][LOW] Dependabot alert #18 — details inaccessible (403); review at https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
 
-3. **SNMP collector** — enrich network devices without SSH
-   - `agent/collectors/snmp_collector.py` using pysnmp
+2. [MEDIUM] Page Teams dans le SPA — React UI for team management
+   - List teams, create/delete, member management, role assignment
+   - Team-scoped inventory views (hosts/networks filtered by team)
+
+3. [MEDIUM] Windows agent — PowerShell installer script
+   - install.ps1: set up Windows service (pywin32), write agent.conf, start service
+   - uninstall.ps1 counterpart
+
+4. [MEDIUM] SNMP collector
+   - agent/collectors/snmp_collector.py using pysnmp
    - OID mappings for Cisco/Juniper/generic
-   - Submit to `POST /api/v1/data/discovery`
-   - Medium complexity
 
-4. **Alertes automatiques CVE** — auto-alert on critical CVEs
-   - Background task in alerts module: compare installed packages against new CVEs
+5. [MEDIUM] Alertes automatiques CVE
+   - Background task comparing installed packages against new CVEs
    - Webhook/email notification
-   - Medium complexity
 
-5. **Hardening TLS** — mTLS between server and agents + cert rotation
-   - Auto-rotate agent certs before expiry
-   - Enforce cert validation on inbound agent connections
-   - High complexity
+6. [LOW] Hosts page: team assignment UI
+   - PATCH /inventory/hosts/{id}/team is wired; add team picker in host detail view
 
-## Done (this session / recent)
-- Merged main into `claude/initial-project-documentation-ogkzS` — CI at 382 tests ✅
-- Dependabot auto-merge workflow (patch/minor → auto-approve+squash, major → human review) ✅
-- CI permissions fix (issues: write for auto-issue creation) ✅
-- Multitenancy foundation — Teams + memberships CRUD + 13 tests ✅ — PR #24
-- Integration test suite (auth/vault/inventory flows, live PostgreSQL) ✅ — PR #23
-- Login rate limiting (Redis sliding window) ✅
-- Credential vault API (AES-256-GCM) ✅
-- Documentation generator ✅
-- Agent auto-deployment via SSH ✅
-- RBAC multi-user system ✅
-- Full nmap + Alembic + LDAP/AD + CVE scan + all SPA pages ✅
+7. [LOW] Hardening TLS — mTLS cert rotation + enforce cert validation on agent connections
 
-## Done (older)
-- All server foundation, modules, APIs, agent, install scripts
+## Done
+
+- fix(deps): browserslist 4.28.2 → 4.28.8 (alert #19, prototype pollution/DoS) — PR #39
+- Windows WMI collector + 14 CIS Level-1 hardening checks (32 tests) — PR #31
+- Team assignment API: PATCH hosts/{id}/team + networks/{id}/team — PR #30
+- Team-scoped data isolation (migration 0005 + model FKs + ?team_id= filtering) — PR #29
+- Vuln UI: CVE drill-down slide-over + team-scoped stats panel — PR #33, #34
+- fix(deps): python-jose → PyJWT, aiohttp 3.14.3, cryptography, react-router — PR #35
+- Dependabot auto-merge workflow + CI permissions fix (issues: write)
+- Multitenancy foundation: Teams + memberships CRUD (13 tests) — PR #24
+- Integration test suite (auth/vault/inventory flows, live PostgreSQL) — PR #23
+- Credential vault (AES-256-GCM), rate limiting, docs generator, agent auto-deploy — PR #19
+- RBAC multi-user system + audit log — PR #16
+- dkctl admin CLI + agent Docker — PR #15
+- Full test suite + GitHub Actions CI — PR #14
+- Ansible collector + Netmiko + Devices SPA — PR #13
+- CVE scanner + Networks/Topology SPA — PR #12
+- nmap + Alembic migrations + LDAP/AD module — PR #11
+- React SPA: all pages, server foundation, modules, agent, install scripts

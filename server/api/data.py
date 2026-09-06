@@ -221,6 +221,7 @@ class HostRecord(BaseModel):
     ip_addresses: list[str] = Field(default_factory=list)
     os: str | None = None
     os_version: str | None = None
+    team_id: uuid.UUID | None = None
 
 
 class HostBatch(BaseModel):
@@ -258,6 +259,7 @@ async def ingest_hosts(
                     os=rec.os,
                     os_version=rec.os_version,
                     agent_id=agent.id,
+                    team_id=rec.team_id,
                     last_seen=now,
                 )
                 db.add(host)
@@ -272,6 +274,8 @@ async def ingest_hosts(
                     host.os = rec.os
                 if rec.os_version:
                     host.os_version = rec.os_version
+                if rec.team_id is not None:
+                    host.team_id = rec.team_id
                 host.agent_id = agent.id
                 host.last_seen = now
 

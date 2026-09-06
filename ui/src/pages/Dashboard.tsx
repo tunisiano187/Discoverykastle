@@ -1,8 +1,10 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { getVulnSummary, VulnSummary } from "../api/vulns";
 import { getAgents, Agent } from "../api/agents";
+import { getTeams, Team } from "../api/teams";
 import { useDashboardWS } from "../hooks/useDashboardWS";
 import SeverityBadge from "../components/SeverityBadge";
+import CveSlideOver from "../components/CveSlideOver";
 
 const SEV_ORDER = ["critical", "high", "medium", "low", "none", "unknown"] as const;
 const SEV_BAR_COLOR: Record<string, string> = {
@@ -26,12 +28,21 @@ function StatCard({ label, value }: { label: string; value: number | string }) {
 export default function Dashboard() {
   const [summary, setSummary] = useState<VulnSummary | null>(null);
   const [agents, setAgents] = useState<Agent[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
+  const [teamId, setTeamId] = useState("");
+  const [selectedCve, setSelectedCve] = useState<string | null>(null);
   const { connectedAgents, events, connected } = useDashboardWS();
 
+  // Load agents and teams once on mount
   useEffect(() => {
-    getVulnSummary().then(setSummary).catch(console.error);
     getAgents().then(setAgents).catch(console.error);
+    getTeams().catch(() => [] as Team[]).then(setTeams);
   }, []);
+
+  // Reload vuln summary whenever the team filter changes
+  useEffect(() => {
+    getVulnSummary(teamId || undefined).then(setSummary).catch(console.error);
+  }, [teamId]);
 
   const onlineCount = connectedAgents.length;
   const totalAgents = agents.length;
@@ -39,15 +50,55 @@ export default function Dashboard() {
     ? Math.max(...SEV_ORDER.map((s) => summary.by_severity[s]))
     : 0;
 
+  const selectedTeam = teams.find((t) => t.id === teamId);
+
+  const handleCveClick = useCallback((cveId: string) => {
+    setSelectedCve(cveId);
+  }, []);
+
+  const handleCloseSlideOver = useCallback(() => {
+    setSelectedCve(null);
+  }, []);
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold text-white">Dashboard</h1>
-        <span className={`flex items-center gap-1.5 text-xs ${connected ? "text-green-400" : "text-gray-500"}`}>
-          <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-400" : "bg-gray-600"}`} />
-          {connected ? "Live" : "Disconnected"}
-        </span>
+        <div className="flex items-center gap-4">
+          {/* Team scope filter */}
+          {teams.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-gray-500">Scope:</span>
+              <select
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
+                className="bg-surface-1 border border-surface-3 text-gray-300 rounded px-2 py-1 text-xs focus:outline-none focus:border-brand"
+              >
+                <option value="">All teams</option>
+                {teams.map((t) => (
+                  <option key={t.id} value={t.id}>{t.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          <span className={`flex items-center gap-1.5 text-xs ${connected ? "text-green-400" : "text-gray-500"}`}>
+            <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-400" : "bg-gray-600"}`} />
+            {connected ? "Live" : "Disconnected"}
+          </span>
+        </div>
       </div>
+
+      {/* Team context banner */}
+      {selectedTeam && (
+        <div className="bg-surface-1 border border-brand/30 rounded-lg px-4 py-2 flex items-center gap-2 text-xs text-gray-400">
+          <span className="text-brand">⬡</span>
+          <span>Showing data scoped to team</span>
+          <span className="font-semibold text-gray-200">{selectedTeam.name}</span>
+          {selectedTeam.description && (
+            <span className="text-gray-600">— {selectedTeam.description}</span>
+          )}
+        </div>
+      )}
 
       {/* KPI cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
@@ -61,7 +112,12 @@ export default function Dashboard() {
         {/* Severity breakdown */}
         {summary && (
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-4 space-y-3">
-            <h2 className="text-sm font-semibold text-gray-300">Severity breakdown</h2>
+            <h2 className="text-sm font-semibold text-gray-300">
+              Severity breakdown
+              {selectedTeam && (
+                <span className="ml-2 text-xs font-normal text-gray-500">({selectedTeam.name})</span>
+              )}
+            </h2>
             {SEV_ORDER.map((sev) => {
               const count = summary.by_severity[sev];
               const pct = maxSev > 0 ? (count / maxSev) * 100 : 0;
@@ -83,19 +139,29 @@ export default function Dashboard() {
           </div>
         )}
 
-        {/* Top CVEs */}
+        {/* Top CVEs — click any row to open the host drill-down */}
         {summary && summary.top_cves.length > 0 && (
           <div className="bg-surface-1 border border-surface-3 rounded-xl p-4 space-y-2">
-            <h2 className="text-sm font-semibold text-gray-300">Top CVEs by affected hosts</h2>
+            <h2 className="text-sm font-semibold text-gray-300">
+              Top CVEs by affected hosts
+              {selectedTeam && (
+                <span className="ml-2 text-xs font-normal text-gray-500">({selectedTeam.name})</span>
+              )}
+            </h2>
             <div className="space-y-1">
               {summary.top_cves.slice(0, 8).map((c) => (
-                <div key={c.cve_id} className="flex items-center justify-between text-sm py-1 border-b border-surface-2 last:border-0">
-                  <span className="text-brand font-mono text-xs">{c.cve_id}</span>
+                <button
+                  key={c.cve_id}
+                  onClick={() => handleCveClick(c.cve_id)}
+                  className="w-full flex items-center justify-between text-sm py-1 border-b border-surface-2 last:border-0 hover:bg-surface-2 rounded px-1 -mx-1 transition-colors group"
+                  title={`Click to see all hosts affected by ${c.cve_id}`}
+                >
+                  <span className="font-mono text-xs text-brand group-hover:underline">{c.cve_id}</span>
                   <div className="flex items-center gap-3">
                     <SeverityBadge severity={c.severity} />
                     <span className="text-gray-400 text-xs w-16 text-right">{c.affected_hosts} hosts</span>
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -118,6 +184,11 @@ export default function Dashboard() {
           </div>
         )}
       </div>
+
+      {/* CVE drill-down slide-over */}
+      {selectedCve && (
+        <CveSlideOver cveId={selectedCve} onClose={handleCloseSlideOver} />
+      )}
     </div>
   );
 }

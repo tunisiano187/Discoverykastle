@@ -36,13 +36,43 @@ export interface VulnSummary {
   top_cves: TopCve[];
 }
 
-export const getVulns = (params?: { severity?: string; limit?: number; offset?: number }) => {
+export interface AffectedHost {
+  host_id: string;
+  fqdn: string | null;
+  ip_addresses: string[];
+  package_id: string | null;
+  first_seen: string;
+}
+
+export interface CveDetail {
+  cve_id: string;
+  severity: string;
+  cvss_score: number | null;
+  description: string | null;
+  remediation: string | null;
+  affected_host_count: number;
+  affected_hosts: AffectedHost[];
+}
+
+export const getVulns = (params?: {
+  severity?: string;
+  team_id?: string;
+  limit?: number;
+  offset?: number;
+}) => {
   const qs = new URLSearchParams();
   if (params?.severity) qs.set("severity", params.severity);
+  if (params?.team_id) qs.set("team_id", params.team_id);
   if (params?.limit) qs.set("limit", String(params.limit));
   if (params?.offset) qs.set("offset", String(params.offset));
   const q = qs.toString();
   return apiFetch<VulnOut[]>(`/api/v1/vulns${q ? `?${q}` : ""}`);
 };
 
-export const getVulnSummary = () => apiFetch<VulnSummary>("/api/v1/vulns/summary");
+export const getVulnSummary = (team_id?: string) => {
+  const qs = team_id ? `?team_id=${encodeURIComponent(team_id)}` : "";
+  return apiFetch<VulnSummary>(`/api/v1/vulns/summary${qs}`);
+};
+
+export const getCveDetail = (cveId: string) =>
+  apiFetch<CveDetail>(`/api/v1/vulns/${encodeURIComponent(cveId)}`);

@@ -25,11 +25,11 @@ dependencies = [
     "httpx>=0.27",
 
     # Auth
-    "python-jose[cryptography]>=3.3",
+    "PyJWT>=2.9",
     "passlib[bcrypt]>=1.7",
 
     # Crypto (CA / mTLS)
-    "cryptography>=42",
+    "cryptography>=50",
 
     # Redis
     "redis>=5.0",
@@ -89,6 +89,12 @@ include = ["server*", "modules*"]
 [tool.ruff]
 target-version = "py312"
 line-length = 100
+
+[tool.ruff.lint]
+# Pin to ruff's historically stable default rule set so CI is green across all
+# ruff>=0.4 versions. Expanded defaults (SIM, I, RUF, ANN, …) vary by version
+# and would surface hundreds of pre-existing findings on the codebase.
+select = ["E4", "E7", "E9", "F"]
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
