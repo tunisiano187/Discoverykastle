@@ -3,6 +3,7 @@ import { apiFetch, clearToken, setToken } from "../api/client";
 
 interface AuthState {
   username: string | null;
+  role: string | null;
   loading: boolean;
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
@@ -10,6 +11,7 @@ interface AuthState {
 
 export const AuthContext = createContext<AuthState>({
   username: null,
+  role: null,
   loading: true,
   login: async () => {},
   logout: () => {},
@@ -21,6 +23,7 @@ export function useAuth(): AuthState {
 
 export function useAuthProvider(): AuthState {
   const [username, setUsername] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -28,8 +31,11 @@ export function useAuthProvider(): AuthState {
       setLoading(false);
       return;
     }
-    apiFetch<{ username: string }>("/api/v1/auth/me")
-      .then((r) => setUsername(r.username))
+    apiFetch<{ username: string; role: string }>("/api/v1/auth/me")
+      .then((r) => {
+        setUsername(r.username);
+        setRole(r.role);
+      })
       .catch(() => clearToken())
       .finally(() => setLoading(false));
   }, []);
@@ -45,12 +51,17 @@ export function useAuthProvider(): AuthState {
     const data = (await res.json()) as { access_token: string };
     setToken(data.access_token);
     setUsername(user);
+    // Fetch role after login
+    apiFetch<{ username: string; role: string }>("/api/v1/auth/me")
+      .then((r) => setRole(r.role))
+      .catch(() => {});
   };
 
   const logout = () => {
     clearToken();
     setUsername(null);
+    setRole(null);
   };
 
-  return { username, loading, login, logout };
+  return { username, role, loading, login, logout };
 }

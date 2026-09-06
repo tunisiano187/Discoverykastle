@@ -10,6 +10,7 @@ import Vulns from "./pages/Vulns";
 import Networks from "./pages/Networks";
 import Topology from "./pages/Topology";
 import Devices from "./pages/Devices";
+import Teams from "./pages/Teams";
 
 export default function App() {
   const auth = useAuthProvider();
@@ -34,6 +35,7 @@ export default function App() {
             <Route path="topology" element={<Topology />} />
             <Route path="devices" element={<Devices />} />
             <Route path="vulns" element={<Vulns />} />
+            <Route path="teams" element={<Teams />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
