@@ -337,6 +337,139 @@ class TestIngestVulnerabilities:
         assert result.upserted == 1
         mock_db.add.assert_called_once()
 
+    @pytest.mark.asyncio
+    async def test_dispatches_alert_for_new_critical_cve(self) -> None:
+        """New critical/high CVEs must trigger dispatch_vulnerability_found."""
+        from server.api.data import ingest_vulnerabilities
+
+        agent = _make_agent()
+        host = _make_host()
+        mock_db = AsyncMock(spec=AsyncSession)
+
+        agent_result = MagicMock()
+        agent_result.scalar_one_or_none.return_value = agent
+        host_result = MagicMock()
+        host_result.scalar_one_or_none.return_value = host
+        no_vuln = MagicMock()
+        no_vuln.scalar_one_or_none.return_value = None
+
+        mock_db.execute = AsyncMock(side_effect=[agent_result, host_result, no_vuln])
+        mock_db.add = MagicMock()
+        mock_db.commit = AsyncMock()
+
+        batch = VulnerabilityBatch(vulnerabilities=[
+            VulnerabilityRecord(
+                host_fqdn=host.fqdn,
+                cve_id="CVE-2024-99999",
+                severity="critical",
+                cvss_score=9.9,
+            )
+        ])
+
+        with patch("server.api.data.registry") as mock_registry:
+            mock_registry.dispatch_vulnerability_found = AsyncMock()
+            await ingest_vulnerabilities(
+                batch,
+                db=mock_db,
+                x_agent_fingerprint=agent.certificate_fingerprint,
+                x_agent_id=None,
+            )
+
+        mock_registry.dispatch_vulnerability_found.assert_awaited_once()
+        call_args = mock_registry.dispatch_vulnerability_found.call_args
+        vuln_arg, host_arg, db_arg = call_args.args
+        assert vuln_arg.cve_id == "CVE-2024-99999"
+        assert host_arg is host
+
+    @pytest.mark.asyncio
+    async def test_no_alert_dispatch_for_existing_cve(self) -> None:
+        """Re-scans of an already-known CVE must NOT fire a duplicate alert."""
+        from server.api.data import ingest_vulnerabilities
+        from server.models.vulnerability import Vulnerability
+
+        agent = _make_agent()
+        host = _make_host()
+        mock_db = AsyncMock(spec=AsyncSession)
+
+        existing_vuln = Vulnerability(
+            id=uuid.uuid4(),
+            host_id=host.id,
+            cve_id="CVE-2024-11111",
+            severity="critical",
+            cvss_score=9.5,
+        )
+
+        agent_result = MagicMock()
+        agent_result.scalar_one_or_none.return_value = agent
+        host_result = MagicMock()
+        host_result.scalar_one_or_none.return_value = host
+        existing_result = MagicMock()
+        existing_result.scalar_one_or_none.return_value = existing_vuln
+
+        mock_db.execute = AsyncMock(side_effect=[agent_result, host_result, existing_result])
+        mock_db.add = MagicMock()
+        mock_db.commit = AsyncMock()
+
+        batch = VulnerabilityBatch(vulnerabilities=[
+            VulnerabilityRecord(
+                host_fqdn=host.fqdn,
+                cve_id="CVE-2024-11111",
+                severity="critical",
+                cvss_score=9.5,
+            )
+        ])
+
+        with patch("server.api.data.registry") as mock_registry:
+            mock_registry.dispatch_vulnerability_found = AsyncMock()
+            await ingest_vulnerabilities(
+                batch,
+                db=mock_db,
+                x_agent_fingerprint=agent.certificate_fingerprint,
+                x_agent_id=None,
+            )
+
+        mock_registry.dispatch_vulnerability_found.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_no_alert_dispatch_for_low_severity_cve(self) -> None:
+        """Low/medium CVEs must not trigger an alert even when new."""
+        from server.api.data import ingest_vulnerabilities
+
+        agent = _make_agent()
+        host = _make_host()
+        mock_db = AsyncMock(spec=AsyncSession)
+
+        agent_result = MagicMock()
+        agent_result.scalar_one_or_none.return_value = agent
+        host_result = MagicMock()
+        host_result.scalar_one_or_none.return_value = host
+        no_vuln = MagicMock()
+        no_vuln.scalar_one_or_none.return_value = None
+
+        mock_db.execute = AsyncMock(side_effect=[agent_result, host_result, no_vuln])
+        mock_db.add = MagicMock()
+        mock_db.commit = AsyncMock()
+
+        batch = VulnerabilityBatch(vulnerabilities=[
+            VulnerabilityRecord(
+                host_fqdn=host.fqdn,
+                cve_id="CVE-2024-55555",
+                severity="low",
+                cvss_score=2.1,
+            )
+        ])
+
+        with patch("server.api.data.registry") as mock_registry:
+            mock_registry.dispatch_vulnerability_found = AsyncMock()
+            await ingest_vulnerabilities(
+                batch,
+                db=mock_db,
+                x_agent_fingerprint=agent.certificate_fingerprint,
+                x_agent_id=None,
+            )
+
+        mock_registry.dispatch_vulnerability_found.assert_not_awaited()
+
 
 # ---------------------------------------------------------------------------
 # Scan results
