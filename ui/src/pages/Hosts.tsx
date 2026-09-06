@@ -1,15 +1,25 @@
 import { useEffect, useState } from "react";
-import { getHosts, Host } from "../api/hosts";
+import { getHosts, assignHostTeam, Host } from "../api/hosts";
+import { getTeams, Team } from "../api/teams";
+import { useAuth } from "../hooks/useAuth";
 
 export default function Hosts() {
+  const { role } = useAuth();
   const [hosts, setHosts] = useState<Host[]>([]);
+  const [teams, setTeams] = useState<Team[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [search, setSearch] = useState("");
+  // hostId → pending/error state for team picker
+  const [assigning, setAssigning] = useState<Record<string, boolean>>({});
+  const [assignError, setAssignError] = useState<Record<string, string>>({});
 
   useEffect(() => {
-    getHosts(200)
-      .then(setHosts)
+    Promise.all([getHosts(200), getTeams()])
+      .then(([h, t]) => {
+        setHosts(h);
+        setTeams(t);
+      })
       .catch((e: unknown) => setError(String(e)))
       .finally(() => setLoading(false));
   }, []);
@@ -23,6 +33,24 @@ export default function Hosts() {
       h.os?.toLowerCase().includes(q)
     );
   });
+
+  const teamMap = Object.fromEntries(teams.map((t) => [t.id, t.name]));
+  const isAdmin = role === "admin";
+
+  async function handleTeamChange(hostId: string, teamId: string | null) {
+    setAssigning((p) => ({ ...p, [hostId]: true }));
+    setAssignError((p) => ({ ...p, [hostId]: "" }));
+    try {
+      const updated = await assignHostTeam(hostId, teamId);
+      setHosts((prev) =>
+        prev.map((h) => (h.id === hostId ? { ...h, team_id: updated.team_id } : h))
+      );
+    } catch (e: unknown) {
+      setAssignError((p) => ({ ...p, [hostId]: String(e) }));
+    } finally {
+      setAssigning((p) => ({ ...p, [hostId]: false }));
+    }
+  }
 
   return (
     <div className="p-6 space-y-4">
@@ -48,6 +76,7 @@ export default function Hosts() {
                 <th className="text-left px-4 py-3">FQDN</th>
                 <th className="text-left px-4 py-3">IP Addresses</th>
                 <th className="text-left px-4 py-3">OS</th>
+                <th className="text-left px-4 py-3">Team</th>
                 <th className="text-left px-4 py-3">First seen</th>
                 <th className="text-left px-4 py-3">Last seen</th>
               </tr>
@@ -55,19 +84,50 @@ export default function Hosts() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="px-4 py-6 text-center text-gray-600 text-xs">
+                  <td colSpan={6} className="px-4 py-6 text-center text-gray-600 text-xs">
                     {search ? "No hosts match your search." : "No hosts discovered."}
                   </td>
                 </tr>
               ) : (
                 filtered.map((h) => (
-                  <tr key={h.id} className="border-b border-surface-2 last:border-0 hover:bg-surface-2 transition-colors">
+                  <tr
+                    key={h.id}
+                    className="border-b border-surface-2 last:border-0 hover:bg-surface-2 transition-colors"
+                  >
                     <td className="px-4 py-3 font-mono text-xs text-white">{h.fqdn ?? "—"}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">
                       {h.ip_addresses.join(", ") || "—"}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">
                       {h.os ? `${h.os}${h.os_version ? ` ${h.os_version}` : ""}` : "—"}
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {isAdmin ? (
+                        <div className="flex flex-col gap-1">
+                          <select
+                            value={h.team_id ?? ""}
+                            disabled={assigning[h.id]}
+                            onChange={(e) =>
+                              handleTeamChange(h.id, e.target.value || null)
+                            }
+                            className="bg-surface-2 border border-surface-3 rounded px-2 py-1 text-xs text-white focus:outline-none focus:border-brand disabled:opacity-50 max-w-[160px]"
+                          >
+                            <option value="">— unassigned —</option>
+                            {teams.map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                          {assignError[h.id] && (
+                            <span className="text-red-400 text-xs">{assignError[h.id]}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-gray-400">
+                          {h.team_id ? (teamMap[h.team_id] ?? h.team_id) : "—"}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-500">
                       {new Date(h.first_seen).toLocaleDateString()}

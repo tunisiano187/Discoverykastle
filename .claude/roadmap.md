@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 
 ## Currently open PR
 
-- PR #43 on branch `claude/snmp-collector-ogkzS` — SNMP collector (v1/v2c/v3, OID mappings, 30 tests)
+None — see Todo below for next task.
 
 ## Open Dependabot alerts
 
@@ -12,6 +12,7 @@ Last updated: 2026-09-06
 
 ## Recently merged
 
+- PR #43: feat(agent): SNMP collector — v1/v2c/v3, OID mappings, 30 tests — merged 2026-09-06
 - PR #42: fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — merged 2026-09-06
 - PR #41: feat(ui): Teams page — list, create, delete + member management — merged 2026-09-06
 - PR #40: chore: sync with main — browserslist fix merged, roadmap updated — merged 2026-09-06
