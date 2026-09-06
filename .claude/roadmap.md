@@ -4,7 +4,7 @@ Last updated: 2026-09-06
 
 ## Currently open PR
 
-- PR #42 on branch `claude/windows-installer-ogkzS` — fix CVE alert dispatch + roadmap sync
+- PR #43 on branch `claude/snmp-collector-ogkzS` — SNMP collector (v1/v2c/v3, OID mappings, 30 tests)
 
 ## Open Dependabot alerts
 
@@ -12,6 +12,7 @@ Last updated: 2026-09-06
 
 ## Recently merged
 
+- PR #42: fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — merged 2026-09-06
 - PR #41: feat(ui): Teams page — list, create, delete + member management — merged 2026-09-06
 - PR #40: chore: sync with main — browserslist fix merged, roadmap updated — merged 2026-09-06
 - PR #39: fix(deps): update browserslist → 4.28.8 (alert #19) — merged 2026-09-04
@@ -28,19 +29,15 @@ Last updated: 2026-09-06
 
 1. [SECURITY][LOW] Dependabot alert #18 — review at https://github.com/tunisiano187/Discoverykastle/security/dependabot/18
 
-2. [MEDIUM] SNMP collector
-   - agent/collectors/snmp_collector.py using pysnmp
-   - OID mappings for Cisco/Juniper/generic
-   - Submit to POST /api/v1/data/discovery
-
-3. [LOW] Hosts page: team assignment UI
+2. [LOW] Hosts page: team assignment UI
    - PATCH /inventory/hosts/{id}/team is wired; add team picker in host detail view
 
-4. [LOW] Hardening TLS — mTLS cert rotation + enforce cert validation on agent connections
+3. [LOW] Hardening TLS — mTLS cert rotation + enforce cert validation on agent connections
 
 ## Done
 
-- fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — this PR
+- feat(agent): SNMP collector — v1/v2c/v3, OID mappings, vendor/model detection, 30 tests — PR #43
+- fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — PR #42
 - feat(ui): Teams page — list/create/delete + member management (PR #41)
 - Windows WMI collector + 14 CIS Level-1 hardening checks (32 tests) — PR #31
 - Windows installer: install.ps1, uninstall.ps1, service.py (pywin32)
