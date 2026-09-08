@@ -195,8 +195,9 @@
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
 | **Isolation tenant complète** | Filtrer hosts/networks/devices par team_id | Haute |
-| **Page Teams dans le SPA** | UI pour gérer les équipes et leurs membres | Moyenne |
-| **SNMP collector** | Enrichissement équipements sans SSH | Moyenne |
+| ~~Page Teams dans le SPA~~ | ✅ `ui/src/pages/Teams.tsx` | |
+| ~~SNMP collector~~ | ✅ `agent/collectors/snmp_collector.py` + wiring dans `agent/core.py` + `agent/config.py` | |
+| ~~Page Credentials dans le SPA~~ | ✅ `ui/src/pages/Credentials.tsx` — list/add/delete + type-specific forms | |
 | **Alertes automatiques CVE** | Notifier quand une nouvelle CVE critique impacte un host | Moyenne |
 | **Hardening TLS** | mTLS entre server et agents + rotation certs | Haute |
 

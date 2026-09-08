@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from server.database import get_db
 from server.models.host import Host, Service
-from server.models.network import Network
+from server.models.network import Network, ScanResult
 from server.models.device import NetworkDevice
 from server.models.vulnerability import Vulnerability
 from server.models.agent import AuthorizationRequest
@@ -94,6 +94,18 @@ class AuthorizationRequestOut(BaseModel):
     resolved_at: datetime | None = None
     resolved_by: str | None = None
     expires_at: datetime | None = None
+
+
+class ScanResultOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    network_id: uuid.UUID | None
+    agent_id: uuid.UUID
+    started_at: datetime
+    completed_at: datetime | None
+    hosts_found: list[str]
+    created_at: datetime
 
 
 class DeviceOut(BaseModel):
@@ -497,3 +509,54 @@ async def inventory_stats(
         vuln_by_severity=vuln_by_severity,
         os_distribution=os_distribution,
     )
+
+
+# ------------------------------------------------------------------
+# Scan results
+# ------------------------------------------------------------------
+
+@router.get("/scan-results", response_model=list[ScanResultOut])
+async def list_scan_results(
+    network_id: uuid.UUID | None = Query(None, description="Filter by network UUID"),
+    limit: int = Query(50, ge=1, le=500, description="Max results to return (newest first)"),
+    db: AsyncSession = Depends(get_db),
+) -> list[ScanResult]:
+    """
+    List scan results, ordered newest-first.
+
+    Optional filter: ``network_id`` restricts to a single network.
+    """
+    from sqlalchemy import desc
+
+    q = select(ScanResult).order_by(desc(ScanResult.created_at)).limit(limit)
+    if network_id is not None:
+        q = q.where(ScanResult.network_id == network_id)
+    rows = await db.execute(q)
+    return list(rows.scalars())
+
+
+@router.get("/networks/{network_id}/scan-results", response_model=list[ScanResultOut])
+async def list_network_scan_results(
+    network_id: uuid.UUID,
+    limit: int = Query(20, ge=1, le=200, description="Max results to return (newest first)"),
+    db: AsyncSession = Depends(get_db),
+) -> list[ScanResult]:
+    """
+    List scan results for a specific network, ordered newest-first.
+
+    Returns 404 when the network does not exist.
+    """
+    from sqlalchemy import desc
+
+    network = await db.get(Network, network_id)
+    if not network:
+        raise HTTPException(status_code=404, detail="Network not found")
+
+    q = (
+        select(ScanResult)
+        .where(ScanResult.network_id == network_id)
+        .order_by(desc(ScanResult.created_at))
+        .limit(limit)
+    )
+    rows = await db.execute(q)
+    return list(rows.scalars())

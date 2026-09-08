@@ -2,11 +2,13 @@ import { useEffect, useState } from "react";
 import {
   getNetworks,
   getAuthRequests,
+  getNetworkScanResults,
   requestPublicScan,
   approveAuthRequest,
   denyAuthRequest,
   Network,
   AuthRequest,
+  ScanResult,
 } from "../api/networks";
 
 function IpClassBadge({ cls }: { cls: string }) {
@@ -51,6 +53,9 @@ export default function Networks() {
   const [error, setError] = useState("");
   const [tab, setTab] = useState<"networks" | "auth">("networks");
   const [actionMsg, setActionMsg] = useState("");
+  // Scan history panel: networkId → scan results (null = loading)
+  const [scanHistory, setScanHistory] = useState<Record<string, ScanResult[] | null>>({});
+  const [expandedNet, setExpandedNet] = useState<string | null>(null);
 
   const reload = () => {
     setLoading(true);
@@ -66,6 +71,22 @@ export default function Networks() {
   useEffect(() => {
     reload();
   }, []);
+
+  const toggleHistory = async (netId: string) => {
+    if (expandedNet === netId) {
+      setExpandedNet(null);
+      return;
+    }
+    setExpandedNet(netId);
+    if (scanHistory[netId] !== undefined) return; // already loaded
+    setScanHistory((prev) => ({ ...prev, [netId]: null })); // null = loading
+    try {
+      const results = await getNetworkScanResults(netId, 10);
+      setScanHistory((prev) => ({ ...prev, [netId]: results }));
+    } catch {
+      setScanHistory((prev) => ({ ...prev, [netId]: [] }));
+    }
+  };
 
   const handleRequestScan = async (net: Network) => {
     try {
@@ -151,21 +172,22 @@ export default function Networks() {
                 <th className="text-left px-4 py-3">Domain</th>
                 <th className="text-left px-4 py-3">Authorized</th>
                 <th className="text-left px-4 py-3">Description</th>
+                <th className="text-left px-4 py-3 w-8"></th>
                 <th className="text-left px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {networks.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-6 text-center text-gray-600 text-xs">
+                  <td colSpan={7} className="px-4 py-6 text-center text-gray-600 text-xs">
                     No networks discovered yet.
                   </td>
                 </tr>
               ) : (
-                networks.map((net) => (
+                networks.flatMap((net) => [
                   <tr
                     key={net.id}
-                    className="border-b border-surface-2 last:border-0 hover:bg-surface-2 transition-colors"
+                    className="border-b border-surface-2 hover:bg-surface-2 transition-colors"
                   >
                     <td className="px-4 py-3 font-mono text-xs text-white">{net.cidr}</td>
                     <td className="px-4 py-3">
@@ -184,6 +206,21 @@ export default function Networks() {
                     <td className="px-4 py-3 text-xs text-gray-500">
                       {net.description ?? "—"}
                     </td>
+                    {/* Scan history toggle */}
+                    <td className="px-2 py-3 text-center">
+                      <button
+                        onClick={() => toggleHistory(net.id)}
+                        title="Show scan history"
+                        className="text-gray-500 hover:text-white transition-colors"
+                      >
+                        <svg
+                          className={`w-3.5 h-3.5 transition-transform ${expandedNet === net.id ? "rotate-90" : ""}`}
+                          fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                        </svg>
+                      </button>
+                    </td>
                     <td className="px-4 py-3 text-right">
                       {net.ip_class !== "private" && !net.scan_authorized && (
                         <button
@@ -194,8 +231,52 @@ export default function Networks() {
                         </button>
                       )}
                     </td>
-                  </tr>
-                ))
+                  </tr>,
+                  // Expanded scan history row
+                  expandedNet === net.id && (
+                    <tr key={`${net.id}-history`} className="border-b border-surface-2 bg-surface-1">
+                      <td colSpan={7} className="px-6 py-3">
+                        <div className="text-xs text-gray-400 mb-1 font-semibold uppercase tracking-wider">
+                          Recent scans — {net.cidr}
+                        </div>
+                        {scanHistory[net.id] === null ? (
+                          <p className="text-xs text-gray-600">Loading…</p>
+                        ) : (scanHistory[net.id] ?? []).length === 0 ? (
+                          <p className="text-xs text-gray-600">No scans recorded yet.</p>
+                        ) : (
+                          <table className="w-full text-xs">
+                            <thead>
+                              <tr className="text-gray-600">
+                                <th className="text-left py-1 pr-4">Started</th>
+                                <th className="text-left py-1 pr-4">Completed</th>
+                                <th className="text-left py-1 pr-4">Hosts found</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {(scanHistory[net.id] ?? []).map((sr) => (
+                                <tr key={sr.id} className="border-t border-surface-2">
+                                  <td className="py-1 pr-4 text-gray-300 font-mono">
+                                    {new Date(sr.started_at).toLocaleString()}
+                                  </td>
+                                  <td className="py-1 pr-4 text-gray-400 font-mono">
+                                    {sr.completed_at
+                                      ? new Date(sr.completed_at).toLocaleString()
+                                      : "—"}
+                                  </td>
+                                  <td className="py-1 text-gray-300">
+                                    {sr.hosts_found.length > 0
+                                      ? sr.hosts_found.join(", ")
+                                      : "0 hosts"}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        )}
+                      </td>
+                    </tr>
+                  ),
+                ])
               )}
             </tbody>
           </table>
