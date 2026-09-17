@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: "/devices", label: "Devices", icon: "⊞" },
   { to: "/vulns", label: "Vulnerabilities", icon: "🛡" },
   { to: "/teams", label: "Teams", icon: "👥" },
+  { to: "/credentials", label: "Credentials", icon: "🔑" },
 ];
 
 export default function Layout() {

@@ -17,6 +17,12 @@ class Agent(Base):
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="offline")
     authorized_cidrs: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
     last_heartbeat: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Resource metrics — populated from heartbeat payloads when psutil is
+    # available on the agent host.  Nullable so older agent versions that
+    # do not send metrics don't fail.
+    cpu_percent: Mapped[float | None] = mapped_column(nullable=True)
+    memory_percent: Mapped[float | None] = mapped_column(nullable=True)
+    disk_percent: Mapped[float | None] = mapped_column(nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 

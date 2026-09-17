@@ -294,6 +294,56 @@ class AgentConfig:
     def netmiko_redact_config(self) -> bool:
         return self._get("NETMIKO_REDACT_CONFIG", "true").lower() not in ("0", "false", "no")
 
+    # ---- SNMP collector ----
+
+    @property
+    def snmp_enabled(self) -> bool:
+        return self._get("SNMP_ENABLED", "false").lower() in ("1", "true", "yes")
+
+    @property
+    def snmp_community(self) -> str:
+        return self._get("SNMP_COMMUNITY", "public")
+
+    @property
+    def snmp_version(self) -> str:
+        return self._get("SNMP_VERSION", "2c")
+
+    @property
+    def snmp_port(self) -> int:
+        return int(self._get("SNMP_PORT", "161"))
+
+    @property
+    def snmp_timeout(self) -> int:
+        return int(self._get("SNMP_TIMEOUT", "5"))
+
+    @property
+    def snmp_retries(self) -> int:
+        return int(self._get("SNMP_RETRIES", "2"))
+
+    @property
+    def snmp_poll_interval(self) -> int:
+        return int(self._get("SNMP_POLL_INTERVAL", "900"))
+
+    @property
+    def snmpv3_username(self) -> str:
+        return self._get("SNMPV3_USERNAME", "")
+
+    @property
+    def snmpv3_auth_protocol(self) -> str:
+        return self._get("SNMPV3_AUTH_PROTOCOL", "SHA")
+
+    @property
+    def snmpv3_auth_passphrase(self) -> str:
+        return self._get("SNMPV3_AUTH_PASSPHRASE", "")
+
+    @property
+    def snmpv3_priv_protocol(self) -> str:
+        return self._get("SNMPV3_PRIV_PROTOCOL", "AES")
+
+    @property
+    def snmpv3_priv_passphrase(self) -> str:
+        return self._get("SNMPV3_PRIV_PASSPHRASE", "")
+
     # ---- Windows collector ----
 
     @property

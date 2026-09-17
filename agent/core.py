@@ -299,6 +299,15 @@ class DKAgent:
                 "Windows collector disabled (set WINDOWS_COLLECTOR_ENABLED=true to enable)"
             )
 
+        if cfg.snmp_enabled:
+            tasks.append(
+                asyncio.create_task(self._snmp_loop(), name="snmp-collector")
+            )
+        else:
+            logger.info(
+                "SNMP collector disabled (set SNMP_ENABLED=true to enable)"
+            )
+
         try:
             await asyncio.gather(*tasks)
         except asyncio.CancelledError:
@@ -320,9 +329,10 @@ class DKAgent:
 
             try:
                 async with self._build_client() as client:
+                    metrics = await asyncio.to_thread(_collect_resource_metrics)
                     resp = await client.post(
                         f"/api/v1/agents/{cfg.agent_id}/heartbeat",
-                        json={"agent_version": _agent_version()},
+                        json={"agent_version": _agent_version(), **metrics},
                     )
                     resp.raise_for_status()
                     consecutive_failures = 0
@@ -566,6 +576,44 @@ class DKAgent:
             run_cis_checks=cfg.windows_cis_checks,
         ).run_sync()
 
+    # ------------------------------------------------------------------
+    # SNMP collector loop
+    # ------------------------------------------------------------------
+
+    async def _snmp_loop(self) -> None:
+        cfg = self.config
+        logger.info(
+            "SNMP collector active — poll every %ds", cfg.snmp_poll_interval
+        )
+        while True:
+            try:
+                await asyncio.to_thread(self._run_snmp_poll)
+            except Exception:
+                logger.exception("SNMP collector poll cycle failed")
+            await asyncio.sleep(cfg.snmp_poll_interval)
+
+    def _run_snmp_poll(self) -> None:
+        from agent.collectors.snmp_collector import SNMPCollector
+
+        cfg = self.config
+        ssl_ctx = _build_ssl_ctx(cfg.agent_cert, cfg.agent_key, cfg.agent_ca)
+
+        SNMPCollector(
+            server_url=cfg.server_url,
+            agent_id=cfg.agent_id,
+            ssl_ctx=ssl_ctx,
+            community=cfg.snmp_community,
+            version=cfg.snmp_version,
+            snmp_port=cfg.snmp_port,
+            timeout=cfg.snmp_timeout,
+            retries=cfg.snmp_retries,
+            v3_username=cfg.snmpv3_username,
+            v3_auth_protocol=cfg.snmpv3_auth_protocol,
+            v3_auth_passphrase=cfg.snmpv3_auth_passphrase,
+            v3_priv_protocol=cfg.snmpv3_priv_protocol,
+            v3_priv_passphrase=cfg.snmpv3_priv_passphrase,
+        ).run_poll_cycle()
+
 
 # ------------------------------------------------------------------
 # Helpers
@@ -586,3 +634,20 @@ def _agent_version() -> str:
         return version("discoverykastle-agent")
     except Exception:
         return "dev"
+
+
+def _collect_resource_metrics() -> dict[str, float | None]:
+    """
+    Return current CPU, memory, and disk utilisation as percentages.
+
+    Uses ``psutil`` when available; falls back to ``None`` values so that
+    agents without psutil still send valid heartbeats.
+    """
+    try:
+        import psutil
+        cpu = psutil.cpu_percent(interval=0.1)
+        mem = psutil.virtual_memory().percent
+        disk = psutil.disk_usage("/").percent
+        return {"cpu_percent": cpu, "memory_percent": mem, "disk_percent": disk}
+    except Exception:
+        return {"cpu_percent": None, "memory_percent": None, "disk_percent": None}

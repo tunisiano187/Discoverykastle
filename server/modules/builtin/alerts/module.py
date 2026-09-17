@@ -44,20 +44,31 @@ class Module(BaseModule):
     async def on_vulnerability_found(
         self, vuln: "Vulnerability", host: "Host", db: "AsyncSession"
     ) -> None:
-        score = vuln.cvss_score or 0.0
-        if score >= 9.0:
-            severity = "critical"
-        elif score >= 7.0:
-            severity = "high"
+        # Determine alert severity from CVSS score when available, falling back
+        # to the severity string when the score is absent (e.g. NVD entries that
+        # lack a CVSS vector).
+        score = vuln.cvss_score  # may be None
+        if score is not None:
+            if score >= 9.0:
+                severity = "critical"
+            elif score >= 7.0:
+                severity = "high"
+            else:
+                return  # Low/medium CVSS — no alert
         else:
-            return  # Only alert on high/critical by default
+            # No CVSS score: trust the severity label from the scanner
+            if vuln.severity in ("critical", "high"):
+                severity = vuln.severity
+            else:
+                return  # medium/low/none — no alert
 
+        score_str = f"{score:.1f}" if score is not None else "n/a"
         host_label = host.fqdn or (host.ip_addresses[0] if host.ip_addresses else str(host.id))
         await self._create_alert(
             db,
             severity=severity,
             alert_type=AlertType.VULNERABILITY,
-            message=f"{vuln.cve_id} (CVSS {score:.1f}) found on {host_label}",
+            message=f"{vuln.cve_id} (CVSS {score_str}) found on {host_label}",
             details={
                 "cve_id": vuln.cve_id,
                 "cvss_score": score,
@@ -129,6 +140,28 @@ class Module(BaseModule):
         details: dict[str, Any],
     ) -> None:
         from datetime import datetime
+        from sqlalchemy import select
+
+        # Deduplication: for vulnerability alerts, skip if an unacknowledged
+        # alert for the same (cve_id, host_id) already exists.
+        if alert_type == AlertType.VULNERABILITY:
+            cve_id = details.get("cve_id")
+            host_id = details.get("host_id")
+            if cve_id and host_id:
+                dup_q = select(Alert).where(
+                    Alert.alert_type == AlertType.VULNERABILITY.value,
+                    Alert.acknowledged.is_(False),
+                )
+                dup_rows = await db.execute(dup_q)
+                for existing in dup_rows.scalars():
+                    if existing.acknowledged:
+                        continue  # Acknowledged alerts allow re-alerting
+                    d = existing.details or {}
+                    if d.get("cve_id") == cve_id and d.get("host_id") == host_id:
+                        self.logger.debug(
+                            "Skipping duplicate alert for %s on %s", cve_id, host_id
+                        )
+                        return
 
         alert = Alert(
             severity=severity,
