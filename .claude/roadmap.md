@@ -1,41 +1,46 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-09-06
+Last updated: 2026-09-27
 
 ## Currently open PR
 
-- PR #46 on branch `claude/dependabot-alert18-ogkzS` — fix(deps): nanoid 3.3.18 + feat(db): Alembic startup migrations
-
-## Open Dependabot alerts
-
 _(none)_
+
+## Dependabot status
+
+- Unable to retrieve Dependabot alerts
+- Error: HTTP 403 — "Resource not accessible by integration"
+- API endpoint: `GET /repos/tunisiano187/Discoverykastle/dependabot/alerts`
+- Security prioritization could not be completed safely
+- The GitHub token/integration does not have permission to read Dependabot alerts
+- No feature PR was created because security status cannot be verified
+- Action required: Grant the GitHub App or token `security_events` read permission on the repository
 
 ## Recently merged
 
+- PR #47: chore(deps): bump anyio from 4.14.1 to 4.14.2 — merged 2026-09-19
+- PR #46: fix(deps)+feat(db+ui+agent): nanoid · Alembic startup · scan history · agent health metrics — merged 2026-09-17
 - PR #45: feat(tls): mTLS cert rotation — renew endpoint + agent auto-renewal, 20 tests — merged 2026-09-06
-- PR #44: feat(ui): Hosts page team assignment picker — merged 2026-09-06
+- PR #44: feat(ui): Hosts page — team assignment picker — merged 2026-09-06
 - PR #43: feat(agent): SNMP collector — v1/v2c/v3, OID mappings, 30 tests — merged 2026-09-06
-- PR #42: fix(data): dispatch on_vulnerability_found for new high/critical CVEs (3 new tests) — merged 2026-09-06
+- PR #42: fix(data): dispatch CVE alerts for newly discovered high/critical vulns — merged 2026-09-06
 - PR #41: feat(ui): Teams page — list, create, delete + member management — merged 2026-09-06
-- PR #40: chore: sync with main — browserslist fix merged, roadmap updated — merged 2026-09-06
-- PR #39: fix(deps): update browserslist → 4.28.8 (alert #19) — merged 2026-09-04
-- PR #38: docs(roadmap): sync state — merged 2026-09-04
-- PR #37: chore(deps): Dependabot npm group update — merged 2026-09-04
-- PR #35: fix(deps): replace python-jose with PyJWT — merged 2026-08-13
-- PR #34/#33: CVE drill-down + team-scoped vuln UI — merged 2026-08-13
-- PR #31: Windows WMI collector + CIS Level-1 checks — merged 2026-08-04
-- PR #30: Team assignment API — merged 2026-08-04
-- PR #29: Team-scoped data isolation (migration 0005) — merged 2026-07-29
-- PR #24: Multitenancy foundation — Teams + memberships CRUD — merged 2026-07-01
+- PR #40: chore: sync with main — all Dependabot/security fixes merged, roadmap updated — merged 2026-09-06
+- PR #39: fix(deps): update browserslist to address Dependabot alert #19 — merged 2026-09-04
+- PR #38: docs(roadmap): sync state — note Dependabot alert #18, record PR #36 merge — merged 2026-09-04
 
 ## Todo — prioritized
 
-1. **Scan result history UI** — per-CIDR history on Networks page + `/api/v1/data/scan-results` list endpoint
-2. **Agent health dashboard** — Agents page showing CPU/memory/disk reported by agents on heartbeat
-3. **Credential vault UI** — `/credentials` page for managing the encrypted vault (list, add, delete)
-4. **Network device detail page** — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
-5. **Topology improvements** — edge labels (port/service), drag-and-drop layout persistence
-6. **Alembic auto-generation** — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
+> NOTE: Security verification blocked — Dependabot alerts could not be retrieved (403). Feature work
+> is on hold until Dependabot alerts can be verified as clear or addressed.
+
+1. [BLOCKED] Verify Dependabot alert status — requires `security_events` read permission on the integration
+2. [HIGH] Scan result history UI — per-CIDR history on Networks page + `/api/v1/data/scan-results` list endpoint
+3. [HIGH] Agent health dashboard — Agents page showing CPU/memory/disk reported by agents on heartbeat
+4. [MEDIUM] Credential vault UI — `/credentials` page for managing the encrypted vault (list, add, delete)
+5. [MEDIUM] Network device detail page — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
+6. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
+7. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
 
 ## Done
 
