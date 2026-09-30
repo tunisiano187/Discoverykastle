@@ -177,6 +177,26 @@ class Settings(BaseSettings):
     # Comma-separated: critical,high,medium,low,info
     webpush_min_severity: str = "high"
 
+    # ------------------------------------------------------------------
+    # NVD Monitor — server-side CVE watcher
+    #
+    # Polls the NVD REST API v2 for recently published CVEs and cross-
+    # references them against packages known to the server.  When a match
+    # is found a Vulnerability record is created and the alert pipeline
+    # fires just as if the agent had reported the CVE itself.
+    #
+    # Requires: outbound HTTPS to services.nvd.nist.gov
+    # Rate limit: 5 req/s without a key, 50 req/s with NVD_API_KEY.
+    # ------------------------------------------------------------------
+    nvd_monitor_enabled: bool = False
+    # How often to check NVD for new CVEs (seconds; default 1 hour)
+    nvd_monitor_poll_interval: int = 3600
+    # Optional NVD API key — raises rate limit from 5 to 50 req/s
+    nvd_api_key: Optional[str] = None
+    # Only report CVEs published or modified in the last N seconds on the
+    # very first run (avoids a flood of historical alerts on first startup)
+    nvd_monitor_initial_window: int = 86400  # 24 h
+
     ai_enabled: bool = False
 
     # Backend selection: "auto" | "ollama" | "anthropic"

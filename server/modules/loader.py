@@ -48,6 +48,10 @@ _BUILTIN_MODULES = [
     # LDAP/Active Directory enrichment — disabled by default; requires
     # DKASTLE_LDAP_ENABLED=true + DKASTLE_LDAP_SERVER + bind credentials.
     "server.modules.builtin.ldap.module",
+    # NVD monitor — polls NVD for new CVEs and cross-references against
+    # known packages.  Disabled by default; requires
+    # DKASTLE_NVD_MONITOR_ENABLED=true.
+    "server.modules.builtin.nvd_monitor.module",
 ]
 
 
