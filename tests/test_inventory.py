@@ -14,9 +14,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from server.api.inventory import router, NetworkOut
+from server.api.inventory import router, NetworkOut, _viewer
 from server.models.network import Network
 from server.models.agent import AuthorizationRequest
+from server.services.auth import UserContext
 
 
 # ---------------------------------------------------------------------------
@@ -26,6 +27,11 @@ from server.models.agent import AuthorizationRequest
 def _make_app() -> FastAPI:
     app = FastAPI()
     app.include_router(router)
+
+    async def _admin_viewer():
+        return UserContext(username="admin", role="admin")
+
+    app.dependency_overrides[_viewer] = _admin_viewer
     return app
 
 

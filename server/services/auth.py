@@ -207,3 +207,82 @@ def require_min_role(min_role: str):
 require_admin = require_min_role("admin")
 require_operator_role = require_min_role("operator")
 require_analyst = require_min_role("analyst")
+
+
+# ------------------------------------------------------------------
+# User context dependency (username + role together)
+# ------------------------------------------------------------------
+
+class UserContext:
+    """Carries the authenticated username and global RBAC role."""
+
+    __slots__ = ("username", "role")
+
+    def __init__(self, username: str, role: str) -> None:
+        self.username = username
+        self.role = role
+
+    @property
+    def is_admin(self) -> bool:
+        return self.role == "admin"
+
+
+def require_user_context(min_role: str = "viewer"):
+    """
+    Return a FastAPI dependency that resolves to a :class:`UserContext`.
+
+    Enforces ``min_role`` (same semantics as :func:`require_min_role`).
+    Useful when endpoints need both the username *and* the role — e.g.
+    to decide whether to apply team-scoped filtering.
+    """
+    min_rank = _ROLE_RANK.get(min_role, 99)
+
+    async def _dep(
+        credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
+    ) -> UserContext:
+        from server.config import settings
+
+        if credentials is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Not authenticated",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        username, role = decode_token(credentials.credentials, settings.secret_key)
+        if _ROLE_RANK.get(role, -1) < min_rank:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Insufficient permissions (requires {min_role}, got {role})",
+            )
+        return UserContext(username=username, role=role)
+
+    return _dep
+
+
+# ------------------------------------------------------------------
+# Team-scope helper (used by inventory endpoints)
+# ------------------------------------------------------------------
+
+async def get_team_ids_for_user(
+    username: str,
+    role: str,
+    db,  # AsyncSession — untyped to avoid circular import
+):
+    """
+    Return the set of team UUIDs the *username* belongs to, or ``None``
+    when the user is an admin (no restriction applies).
+
+    A non-admin user with no team memberships gets an empty list, which
+    means the caller should show only unassigned resources (team_id IS NULL).
+    """
+    from sqlalchemy import select
+
+    if role == "admin":
+        return None  # Admins see everything
+
+    from server.models.team import TeamMembership  # lazy import — avoids circular deps
+
+    result = await db.execute(
+        select(TeamMembership.team_id).where(TeamMembership.username == username)
+    )
+    return list(result.scalars())

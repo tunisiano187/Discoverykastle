@@ -14,6 +14,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from server.services.auth import UserContext
+
+_ADMIN = UserContext(username="admin", role="admin")
+
 _TEAM_A = uuid.UUID("aaaaaaaa-0000-0000-0000-000000000001")
 _HOST_A = uuid.UUID("aaaaaaaa-0000-0000-0000-000000000010")
 _NET_A = uuid.UUID("aaaaaaaa-0000-0000-0000-000000000020")
@@ -82,7 +86,7 @@ async def test_list_hosts_team_filter_passes_where_clause():
 
     # Pass explicit values for all params — FastAPI Query() objects are not
     # resolved when calling endpoint handlers directly in unit tests.
-    await list_hosts(os=None, ip=None, team_id=_TEAM_A, limit=50, offset=0, db=mock_db)
+    await list_hosts(os=None, ip=None, team_id=_TEAM_A, limit=50, offset=0, user=_ADMIN, db=mock_db)
 
     assert _has_team_id_filter(_stmt_str(mock_db))
 
@@ -97,7 +101,7 @@ async def test_list_hosts_no_team_filter_omits_where_clause():
     mock_result.scalars.return_value = iter([])
     mock_db.execute = AsyncMock(return_value=mock_result)
 
-    await list_hosts(os=None, ip=None, team_id=None, limit=50, offset=0, db=mock_db)
+    await list_hosts(os=None, ip=None, team_id=None, limit=50, offset=0, user=_ADMIN, db=mock_db)
 
     assert not _has_team_id_filter(_stmt_str(mock_db))
 
@@ -118,7 +122,7 @@ async def test_list_networks_team_filter_passes_where_clause():
     mock_db.execute = AsyncMock(return_value=mock_result)
 
     with patch("server.api.inventory.classify_cidr", return_value="private"):
-        await list_networks(authorized_only=False, team_id=_TEAM_A, db=mock_db)
+        await list_networks(authorized_only=False, team_id=_TEAM_A, user=_ADMIN, db=mock_db)
 
     assert _has_team_id_filter(_stmt_str(mock_db))
 
@@ -134,7 +138,7 @@ async def test_list_networks_no_team_filter():
     mock_db.execute = AsyncMock(return_value=mock_result)
 
     with patch("server.api.inventory.classify_cidr", return_value="private"):
-        await list_networks(authorized_only=False, team_id=None, db=mock_db)
+        await list_networks(authorized_only=False, team_id=None, user=_ADMIN, db=mock_db)
 
     assert not _has_team_id_filter(_stmt_str(mock_db))
 
@@ -169,7 +173,7 @@ async def test_inventory_stats_team_filter_applied():
     mock_result.__iter__ = lambda s: iter([])
     mock_db.execute = AsyncMock(return_value=mock_result)
 
-    stats = await inventory_stats(team_id=_TEAM_A, db=mock_db)
+    stats = await inventory_stats(team_id=_TEAM_A, user=_ADMIN, db=mock_db)
     assert stats.total_hosts == 5
     assert stats.total_networks == 5
 
@@ -189,7 +193,7 @@ async def test_inventory_stats_no_team_filter():
     mock_result.__iter__ = lambda s: iter([])
     mock_db.execute = AsyncMock(return_value=mock_result)
 
-    stats = await inventory_stats(team_id=None, db=mock_db)
+    stats = await inventory_stats(team_id=None, user=_ADMIN, db=mock_db)
     assert stats.total_hosts == 10
 
 
