@@ -21,8 +21,11 @@ from server.models.vulnerability import Vulnerability
 from server.models.agent import AuthorizationRequest
 from server.models.team import Team
 from server.modules.registry import registry
-from server.services.auth import require_operator
+from server.services.auth import require_operator, require_user_context, get_team_ids_for_user
 from server.services.ip_utils import classify_cidr, cidr_contains_public_ips
+
+# Shared dependency — viewer+ required, returns UserContext
+_viewer = require_user_context("viewer")
 
 router = APIRouter(prefix="/api/v1/inventory", tags=["inventory"])
 
@@ -118,6 +121,7 @@ class DeviceOut(BaseModel):
     model: str | None
     firmware_version: str | None
     device_type: str | None
+    team_id: uuid.UUID | None = None
     last_seen: datetime
 
 
@@ -146,6 +150,7 @@ async def list_hosts(
     team_id: uuid.UUID | None = Query(None, description="Filter by team UUID"),
     limit: int = Query(200, ge=1, le=2000),
     offset: int = Query(0, ge=0),
+    user=Depends(_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> list[Host]:
     stmt = select(Host).order_by(Host.last_seen.desc()).limit(limit).offset(offset)
@@ -153,8 +158,19 @@ async def list_hosts(
         stmt = stmt.where(Host.os.ilike(f"%{os}%"))
     if ip:
         stmt = stmt.where(Host.ip_addresses.contains([ip]))
+
     if team_id:
+        # Explicit filter: respect it (the team-scope check below will further restrict if needed)
         stmt = stmt.where(Host.team_id == team_id)
+    else:
+        # Auto-scope: non-admins see only their teams' hosts + unassigned hosts
+        team_ids = await get_team_ids_for_user(user.username, user.role, db)
+        if team_ids is not None:
+            from sqlalchemy import or_
+            stmt = stmt.where(
+                or_(Host.team_id.in_(team_ids), Host.team_id.is_(None))
+            )
+
     result = await db.execute(stmt)
     return list(result.scalars())
 
@@ -224,13 +240,23 @@ async def assign_host_team(
 async def list_networks(
     authorized_only: bool = Query(False),
     team_id: uuid.UUID | None = Query(None, description="Filter by team UUID"),
+    user=Depends(_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> list[NetworkOut]:
     stmt = select(Network).order_by(Network.cidr)
     if authorized_only:
         stmt = stmt.where(Network.scan_authorized == True)  # noqa: E712
+
     if team_id:
         stmt = stmt.where(Network.team_id == team_id)
+    else:
+        team_ids = await get_team_ids_for_user(user.username, user.role, db)
+        if team_ids is not None:
+            from sqlalchemy import or_
+            stmt = stmt.where(
+                or_(Network.team_id.in_(team_ids), Network.team_id.is_(None))
+            )
+
     result = await db.execute(stmt)
     networks = list(result.scalars())
     return [
@@ -451,6 +477,8 @@ async def deny_authorization_request(
 async def list_devices(
     vendor: str | None = Query(None),
     device_type: str | None = Query(None),
+    team_id: uuid.UUID | None = Query(None, description="Filter by team UUID"),
+    user=Depends(_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> list[NetworkDevice]:
     stmt = select(NetworkDevice).order_by(NetworkDevice.last_seen.desc())
@@ -458,6 +486,17 @@ async def list_devices(
         stmt = stmt.where(NetworkDevice.vendor.ilike(f"%{vendor}%"))
     if device_type:
         stmt = stmt.where(NetworkDevice.device_type == device_type)
+
+    if team_id:
+        stmt = stmt.where(NetworkDevice.team_id == team_id)
+    else:
+        team_ids = await get_team_ids_for_user(user.username, user.role, db)
+        if team_ids is not None:
+            from sqlalchemy import or_
+            stmt = stmt.where(
+                or_(NetworkDevice.team_id.in_(team_ids), NetworkDevice.team_id.is_(None))
+            )
+
     result = await db.execute(stmt)
     return list(result.scalars())
 
@@ -477,22 +516,37 @@ async def get_device(device_id: uuid.UUID, db: AsyncSession = Depends(get_db)) -
 @router.get("/stats", response_model=InventoryStats)
 async def inventory_stats(
     team_id: uuid.UUID | None = Query(None, description="Scope stats to a specific team"),
+    user=Depends(_viewer),
     db: AsyncSession = Depends(get_db),
 ) -> InventoryStats:
+    from sqlalchemy import or_
+
     host_q = select(func.count()).select_from(Host)
     net_q = select(func.count()).select_from(Network)
+    dev_q = select(func.count()).select_from(NetworkDevice)
     vuln_q = select(Vulnerability.severity, func.count()).group_by(Vulnerability.severity)
     os_q = select(Host.os, func.count()).where(Host.os.isnot(None)).group_by(Host.os)
 
     if team_id:
         host_q = host_q.where(Host.team_id == team_id)
         net_q = net_q.where(Network.team_id == team_id)
+        dev_q = dev_q.where(NetworkDevice.team_id == team_id)
         vuln_q = vuln_q.join(Host, Vulnerability.host_id == Host.id).where(Host.team_id == team_id)
         os_q = os_q.where(Host.team_id == team_id)
+    else:
+        scoped_team_ids = await get_team_ids_for_user(user.username, user.role, db)
+        if scoped_team_ids is not None:
+            host_q = host_q.where(or_(Host.team_id.in_(scoped_team_ids), Host.team_id.is_(None)))
+            net_q = net_q.where(or_(Network.team_id.in_(scoped_team_ids), Network.team_id.is_(None)))
+            dev_q = dev_q.where(or_(NetworkDevice.team_id.in_(scoped_team_ids), NetworkDevice.team_id.is_(None)))
+            vuln_q = vuln_q.join(Host, Vulnerability.host_id == Host.id).where(
+                or_(Host.team_id.in_(scoped_team_ids), Host.team_id.is_(None))
+            )
+            os_q = os_q.where(or_(Host.team_id.in_(scoped_team_ids), Host.team_id.is_(None)))
 
     total_hosts = await db.scalar(host_q) or 0
     total_networks = await db.scalar(net_q) or 0
-    total_devices = await db.scalar(select(func.count()).select_from(NetworkDevice)) or 0
+    total_devices = await db.scalar(dev_q) or 0
     total_vulns = await db.scalar(select(func.count()).select_from(Vulnerability)) or 0
 
     vuln_rows = await db.execute(vuln_q)
