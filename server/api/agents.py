@@ -74,6 +74,7 @@ class AgentOut(BaseModel):
     memory_percent: float | None = None
     disk_percent: float | None = None
     created_at: datetime
+    expires_at: datetime | None = None
 
 
 class HeartbeatResponse(BaseModel):
@@ -180,6 +181,7 @@ async def register_agent(
     fingerprint = ca.fingerprint(issued.cert_pem)
 
     agent.certificate_fingerprint = fingerprint
+    agent.expires_at = issued.expires_at
     await db.commit()
     await db.refresh(agent)
 
@@ -297,6 +299,7 @@ async def renew_agent_cert(
     issued = ca.issue(str(agent.id))
     fingerprint = ca.fingerprint(issued.cert_pem)
     agent.certificate_fingerprint = fingerprint
+    agent.expires_at = issued.expires_at
     await db.commit()
 
     logger.info("Certificate renewed for agent %s (new fingerprint: %s)", agent_id, fingerprint)

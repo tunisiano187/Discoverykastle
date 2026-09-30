@@ -4,6 +4,7 @@ Tests for TLS hardening:
   - _cert_days_remaining() helper (agent)
   - _build_ssl_ctx() helper (agent)
   - DKAgent._renew_cert_if_needed() (agent)
+  - expires_at tracking — populated on issuance and renewal
 """
 from __future__ import annotations
 
@@ -395,3 +396,124 @@ class TestRenewCertIfNeeded:
         with patch.object(agent, "_build_client") as mock_client:
             await agent._renew_cert_if_needed()
         mock_client.assert_not_called()
+
+
+# ===========================================================================
+# expires_at tracking — cert issuance and renewal
+# ===========================================================================
+
+class TestExpiresAtTracking:
+    """Verify that agent.expires_at is set whenever a cert is issued or renewed."""
+
+    def test_issued_cert_carries_expires_at(self):
+        """_IssuedCert returned by ca.issue() includes a future expires_at."""
+        from server.services.ca import CertificateAuthority
+
+        ca = CertificateAuthority()
+        ca.init(ca_dir="/tmp/test-ca-expires")
+
+        issued = ca.issue("test-agent-id")
+        assert issued.expires_at is not None
+        assert issued.expires_at > datetime.datetime.utcnow()
+        # Should be roughly 90 days out (allow ±1 day)
+        days = (issued.expires_at - datetime.datetime.utcnow()).days
+        assert 88 <= days <= 91
+
+    @pytest.mark.asyncio
+    async def test_registration_sets_expires_at(self):
+        """Agent.expires_at is persisted when a new agent is registered."""
+        from server.api.agents import register_agent, RegisterRequest
+        from server.services.ca import CertificateAuthority, _IssuedCert
+
+        agent_id = uuid.uuid4()
+        fake_expires = datetime.datetime.utcnow() + datetime.timedelta(days=90)
+
+        issued = MagicMock(spec=_IssuedCert)
+        issued.cert_pem = _make_cert_pem(90).decode()
+        issued.key_pem = _make_key_pem().decode()
+        issued.expires_at = fake_expires
+
+        mock_ca = MagicMock(spec=CertificateAuthority)
+        mock_ca.issue.return_value = issued
+        mock_ca.fingerprint.return_value = "fp-register"
+        mock_ca.root_cert_pem = "ca-pem"
+
+        stored_agent = MagicMock()
+        stored_agent.id = agent_id
+
+        mock_db = AsyncMock()
+        mock_db.flush = AsyncMock()
+        mock_db.commit = AsyncMock()
+        mock_db.refresh = AsyncMock()
+        mock_db.add = MagicMock()
+
+        # Simulate flush populating agent.id
+        async def _flush_side_effect():
+            pass
+
+        mock_db.flush.side_effect = _flush_side_effect
+
+        # Capture the Agent object passed to db.add
+        added_objects = []
+        mock_db.add.side_effect = lambda obj: added_objects.append(obj)
+
+        with patch("server.api.agents.ca", mock_ca):
+            with patch("server.config.settings") as mock_settings:
+                mock_settings.enroll_token = "secret"
+                with patch("server.api.agents.AuditLog"):
+                    body = RegisterRequest(
+                        hostname="host.local",
+                        ip_address="10.0.0.1",
+                        os_platform="linux",
+                        agent_version="0.1.0",
+                    )
+                    await register_agent(
+                        body=body,
+                        authorization="Bearer secret",
+                        db=mock_db,
+                    )
+
+        # The agent object (first add call) should have expires_at set
+        agent_obj = added_objects[0]
+        assert agent_obj.expires_at == fake_expires
+
+    @pytest.mark.asyncio
+    async def test_renewal_updates_expires_at(self):
+        """agent.expires_at is updated when the cert is renewed."""
+        from server.api.agents import renew_agent_cert
+        from server.services.ca import CertificateAuthority, _IssuedCert
+
+        agent_id = uuid.uuid4()
+        new_expires = datetime.datetime.utcnow() + datetime.timedelta(days=90)
+
+        issued = MagicMock(spec=_IssuedCert)
+        issued.cert_pem = _make_cert_pem(90).decode()
+        issued.key_pem = _make_key_pem().decode()
+        issued.expires_at = new_expires
+
+        mock_ca = MagicMock(spec=CertificateAuthority)
+        mock_ca.issue.return_value = issued
+        mock_ca.fingerprint.return_value = "new-fp"
+        mock_ca.root_cert_pem = "ca-pem"
+
+        agent = MagicMock()
+        agent.id = agent_id
+        agent.certificate_fingerprint = "old-fp"
+
+        mock_db = AsyncMock()
+        mock_db.get = AsyncMock(return_value=agent)
+
+        with patch("server.api.agents.ca", mock_ca):
+            await renew_agent_cert(
+                agent_id=agent_id,
+                x_agent_fingerprint="old-fp",
+                x_agent_id=None,
+                db=mock_db,
+            )
+
+        assert agent.expires_at == new_expires
+
+    def test_agent_out_includes_expires_at(self):
+        """AgentOut schema exposes expires_at."""
+        from server.api.agents import AgentOut
+        assert "expires_at" in AgentOut.model_fields

@@ -109,6 +109,8 @@
 | Module LDAP/AD | ✅ Done | `server/modules/builtin/ldap/module.py` — enrichit OS, OU, last-logon |
 | Module NetBox | ✅ Done | Sync bidirectionnelle |
 | Module AI | ✅ Done | Enrichissement via Anthropic API (optionnel) |
+| Module NVD Monitor | ✅ Done | `server/modules/builtin/nvd_monitor/module.py` — polls NVD API, alerte sur CVE critiques |
+| Isolation tenant complète | ✅ Done | RBAC scoping hosts/networks/devices/stats par team_id |
 | Topologie réseau | ✅ Done | `TopologyEdge` + `GET /api/v1/topology` |
 | Alertes | ✅ Done | `GET /api/v1/alerts` |
 | Config centralisée | ✅ Done | `server/config.py` — toutes les vars DKASTLE_* |
@@ -194,12 +196,12 @@
 
 | Tâche | Raison | Complexité |
 |-------|--------|------------|
-| **Isolation tenant complète** | Filtrer hosts/networks/devices par team_id | Haute |
+| ~~Isolation tenant complète~~ | ✅ `server/api/inventory.py` — RBAC scoping par team_id sur tous les endpoints (PR #49) | |
 | ~~Page Teams dans le SPA~~ | ✅ `ui/src/pages/Teams.tsx` | |
 | ~~SNMP collector~~ | ✅ `agent/collectors/snmp_collector.py` + wiring dans `agent/core.py` + `agent/config.py` | |
 | ~~Page Credentials dans le SPA~~ | ✅ `ui/src/pages/Credentials.tsx` — list/add/delete + type-specific forms | |
-| **Alertes automatiques CVE** | Notifier quand une nouvelle CVE critique impacte un host | Moyenne |
-| **Hardening TLS** | mTLS entre server et agents + rotation certs | Haute |
+| ~~Alertes automatiques CVE~~ | ✅ `server/modules/builtin/nvd_monitor/module.py` — module NVD (PR #50) | |
+| ~~Hardening TLS~~ | ✅ `server/services/ca.py` + `agent/core.py` — cert rotation + expires_at tracking (PR #45) | |
 
 ---
 

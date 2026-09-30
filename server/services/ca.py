@@ -34,11 +34,12 @@ _CA_VALIDITY_YEARS = 10
 
 
 class _IssuedCert:
-    """Holds PEM strings for a freshly-issued agent certificate."""
+    """Holds PEM strings and metadata for a freshly-issued agent certificate."""
 
-    def __init__(self, cert_pem: str, key_pem: str) -> None:
+    def __init__(self, cert_pem: str, key_pem: str, expires_at: datetime.datetime) -> None:
         self.cert_pem = cert_pem
         self.key_pem = key_pem
+        self.expires_at = expires_at
 
 
 class CertificateAuthority:
@@ -114,6 +115,7 @@ class CertificateAuthority:
         agent_key = ec.generate_private_key(ec.SECP256R1())
 
         now = datetime.datetime.utcnow()
+        expires_at = now + datetime.timedelta(days=_CERT_VALIDITY_DAYS)
         cert = (
             x509.CertificateBuilder()
             .subject_name(x509.Name([
@@ -124,7 +126,7 @@ class CertificateAuthority:
             .public_key(agent_key.public_key())
             .serial_number(x509.random_serial_number())
             .not_valid_before(now)
-            .not_valid_after(now + datetime.timedelta(days=_CERT_VALIDITY_DAYS))
+            .not_valid_after(expires_at)
             .add_extension(
                 x509.BasicConstraints(ca=False, path_length=None),
                 critical=True,
@@ -143,8 +145,8 @@ class CertificateAuthority:
             serialization.NoEncryption(),
         ).decode()
 
-        logger.info("Issued certificate for agent %s", agent_id)
-        return _IssuedCert(cert_pem=cert_pem, key_pem=key_pem)
+        logger.info("Issued certificate for agent %s (expires %s)", agent_id, expires_at.date())
+        return _IssuedCert(cert_pem=cert_pem, key_pem=key_pem, expires_at=expires_at)
 
     # ------------------------------------------------------------------
     # Helpers
