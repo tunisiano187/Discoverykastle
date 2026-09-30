@@ -22,10 +22,10 @@ class TestHostInventory:
         assert resp.status_code == 200
         assert isinstance(resp.json(), list)
 
-    async def test_list_hosts_unauthenticated_works(self, client):
-        # Inventory endpoints are publicly readable (no auth required by design)
+    async def test_list_hosts_requires_auth(self, client):
+        # Inventory endpoints now require authentication (viewer role or above)
         resp = await client.get("/api/v1/inventory/hosts")
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
     async def test_get_seeded_host(self, client, auth_headers, engine):
         from sqlalchemy import text
