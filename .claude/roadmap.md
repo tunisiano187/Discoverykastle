@@ -14,13 +14,17 @@ Last updated: 2026-10-04
 
 ## Dependabot status
 
-- Unable to retrieve Dependabot alerts
+- Unable to retrieve full Dependabot alert list via API
 - Error: HTTP 403 — "Resource not accessible by integration"
 - API endpoint: `GET /repos/tunisiano187/Discoverykastle/dependabot/alerts`
-- Security prioritization could not be completed safely
 - The GitHub token/integration does not have permission to read Dependabot alerts
 - Action required: Grant the GitHub App or token `security_events` read permission on the repository
-- Note: PR #52 (pyjwt bump) exists and its changelog references security fixes in 2.14.0
+- **GitHub push output confirms: 16 open vulnerabilities on the default branch**
+  - 1 critical
+  - 7 high
+  - 8 moderate
+  - Details at: https://github.com/tunisiano187/Discoverykastle/security/dependabot
+- PR #52 (pyjwt 2.13.0→2.15.0) addresses at least the pyjwt advisory referenced in its changelog
 
 ## Recently merged
 
