@@ -1,6 +1,6 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-10-04
+Last updated: 2026-10-11
 
 ## Currently open PR
 
@@ -9,8 +9,8 @@ Last updated: 2026-10-04
   - Author: dependabot[bot]
   - Branch: dependabot/uv/uv-2118ef368f
   - CI status: all checks green (GitGuardian ✓, Test Suite ✓, Integration Tests ✓)
-  - Mergeable: yes (mergeable_state: clean)
-  - Notes: No reviews requested, no blocking feedback. Waiting for merge by maintainer.
+  - Mergeable: yes
+  - Notes: No reviews requested, no blocking feedback. Waiting for merge by maintainer. (verified 2026-10-11)
 
 ## Dependabot status
 
@@ -28,6 +28,7 @@ Last updated: 2026-10-04
 
 ## Recently merged
 
+- PR #53: docs(roadmap): sync state — PR #52 (pyjwt) open/waiting, PRs #49–51 merged, Dependabot 403 — merged 2026-10-04
 - PR #51: feat(tls): track cert expires_at on agent registration and renewal — merged 2026-10-01
 - PR #50: feat: NVD monitor — server-side CVE poller with alert pipeline — merged 2026-09-30
 - PR #49: feat: complete tenant isolation for all inventory endpoints — merged 2026-09-30
