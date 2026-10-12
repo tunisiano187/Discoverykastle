@@ -1,14 +1,24 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-09-06
+Last updated: 2026-09-13
 
 ## Currently open PR
 
-- PR #46 on branch `claude/dependabot-alert18-ogkzS` — fix(deps): nanoid 3.3.18 + feat(db): Alembic startup migrations
+- PR #46: fix(deps)+feat(db+ui+agent): nanoid · Alembic startup · scan history · agent health metrics
+  - Security-related: yes (Dependabot alert #18, GHSA-2v37-7h3g-55p8)
+  - Dependabot alert: #18 (nanoid HIGH — infinite loop)
+  - Branch: `claude/dependabot-alert18-ogkzS`
+  - CI status: ✅ all green (Test Suite: success, Integration Tests: success, GitGuardian: success)
+  - mergeable_state: clean
+  - Notes: Waiting for merge. No review comments. 611 tests pass.
 
-## Open Dependabot alerts
+## Dependabot status
 
-_(none)_
+- Unable to retrieve Dependabot alerts
+- Error: `gh api /repos/tunisiano187/Discoverykastle/dependabot/alerts` → HTTP 403 — "Resource not accessible by integration"
+- Last known: Alert #18 (nanoid GHSA-2v37-7h3g-55p8, HIGH) — addressed in PR #46
+- Alert #19 (browserslist) — fixed in merged PR #39
+- Security prioritization cannot be fully completed safely until Dependabot API access is granted
 
 ## Recently merged
 
@@ -30,15 +40,18 @@ _(none)_
 
 ## Todo — prioritized
 
-1. **Scan result history UI** — per-CIDR history on Networks page + `/api/v1/data/scan-results` list endpoint
-2. **Agent health dashboard** — Agents page showing CPU/memory/disk reported by agents on heartbeat
-3. **Credential vault UI** — `/credentials` page for managing the encrypted vault (list, add, delete)
-4. **Network device detail page** — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
-5. **Topology improvements** — edge labels (port/service), drag-and-drop layout persistence
-6. **Alembic auto-generation** — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
+_(Pending merge of PR #46 which implements scan history + agent health metrics)_
+
+1. **Credential vault UI** — `/credentials` page for managing the encrypted vault (list, add, delete)
+2. **Network device detail page** — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
+3. **Topology improvements** — edge labels (port/service), drag-and-drop layout persistence
+4. **Alembic auto-generation guidance** — `alembic revision --autogenerate` in CONTRIBUTING.md
+5. **nmap collector** — `agent/collectors/network_scan.py` (listed in CLAUDE.md)
 
 ## Done
 
+- feat(ui+api): Scan result history on Networks page — GET /api/v1/inventory/scan-results — PR #46
+- feat(agent+ui): CPU / memory / disk health metrics on Agents page (psutil, MetricBar) — PR #46
 - feat(db): replace create_all() with alembic upgrade head at startup — PR #46
 - fix(deps): nanoid 3.3.18 (Dependabot alert #18, GHSA-2v37-7h3g-55p8) — PR #46
 - feat(tls): mTLS cert rotation — renew endpoint + agent auto-renewal, 20 tests — PR #45
