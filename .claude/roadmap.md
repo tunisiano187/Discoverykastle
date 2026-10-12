@@ -61,6 +61,7 @@ Last updated: 2026-10-12
 6. [MEDIUM] Network device detail page — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
 7. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
 8. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
+9. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
 
 ## Done
 
