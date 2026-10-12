@@ -14,11 +14,15 @@ Last updated: 2026-09-13
 
 ## Dependabot status
 
-- Unable to retrieve Dependabot alerts
-- Error: `gh api /repos/tunisiano187/Discoverykastle/dependabot/alerts` → HTTP 403 — "Resource not accessible by integration"
-- Last known: Alert #18 (nanoid GHSA-2v37-7h3g-55p8, HIGH) — addressed in PR #46
+- Dependabot alerts API: HTTP 403 — "Resource not accessible by integration" (cannot enumerate alerts)
+- **Git push output (2026-10-12) reports: 16 open vulnerabilities on `main`**
+  - 🔴 1 CRITICAL
+  - 🟠 7 HIGH
+  - 🟡 8 MODERATE
+  - See: https://github.com/tunisiano187/Discoverykastle/security/dependabot
+- Alert #18 (nanoid GHSA-2v37-7h3g-55p8, HIGH) — addressed in PR #46 (pending merge)
 - Alert #19 (browserslist) — fixed in merged PR #39
-- Security prioritization cannot be fully completed safely until Dependabot API access is granted
+- **ACTION REQUIRED**: 1 critical + 7 high alerts remain on `main`. Merge PR #46 and grant Dependabot API access to continue triage.
 
 ## Recently merged
 
