@@ -1,16 +1,23 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-10-04
+Last updated: 2026-10-12
 
-## Currently open PR
+## Currently open PRs
 
 - PR #52: chore(deps): bump pyjwt from 2.13.0 to 2.15.0 in the uv group — waiting for merge
   - Security-related: yes (pyjwt 2.14.0 release notes reference security advisories)
   - Author: dependabot[bot]
   - Branch: dependabot/uv/uv-2118ef368f
   - CI status: all checks green (GitGuardian ✓, Test Suite ✓, Integration Tests ✓)
-  - Mergeable: yes (mergeable_state: clean)
-  - Notes: No reviews requested, no blocking feedback. Waiting for merge by maintainer.
+  - Mergeable: yes
+  - Notes: No reviews requested, no blocking feedback. Waiting for merge by maintainer. (re-verified 2026-10-12)
+
+- PR #54: docs(roadmap): sync state 2026-10-11 — PR #52 (pyjwt) still open/CI green — waiting for merge
+  - Security-related: no
+  - Branch: claude/wizardly-wozniak-va9qew
+  - CI status: all checks green (GitGuardian ✓, Test Suite ✓, Integration Tests ✓)
+  - Mergeable: yes
+  - Notes: Roadmap sync PR. Waiting for merge by maintainer. (verified 2026-10-12)
 
 ## Dependabot status
 
@@ -28,6 +35,7 @@ Last updated: 2026-10-04
 
 ## Recently merged
 
+- PR #53: docs(roadmap): sync state — PR #52 (pyjwt) open/waiting, PRs #49–51 merged, Dependabot 403 — merged 2026-10-04
 - PR #51: feat(tls): track cert expires_at on agent registration and renewal — merged 2026-10-01
 - PR #50: feat: NVD monitor — server-side CVE poller with alert pipeline — merged 2026-09-30
 - PR #49: feat: complete tenant isolation for all inventory endpoints — merged 2026-09-30
@@ -43,7 +51,7 @@ Last updated: 2026-10-04
 
 > NOTE: Security verification blocked — Dependabot alerts could not be retrieved (403). Feature work
 > is on hold until Dependabot alerts can be verified as clear or addressed.
-> PR #52 (pyjwt) is open and awaiting merge.
+> PR #52 (pyjwt) and PR #54 (roadmap) are open and awaiting merge.
 
 1. [BLOCKED] Merge PR #52 — pyjwt 2.13.0 → 2.15.0 (security-related bump, CI green)
 2. [BLOCKED] Verify Dependabot alert status — requires `security_events` read permission on the integration
@@ -53,6 +61,7 @@ Last updated: 2026-10-04
 6. [MEDIUM] Network device detail page — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
 7. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
 8. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
+9. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
 
 ## Done
 
