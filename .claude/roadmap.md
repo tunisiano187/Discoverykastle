@@ -4,14 +4,15 @@ Last updated: 2026-10-12
 
 ## Currently open PR
 
-None.
+- PR #57: feat(ui): device detail panel + security fixes (mako/multidict/urllib3) — open
 
 ## Dependabot status
 
 - API: HTTP 403 — "Resource not accessible by integration" (permission `security_events` read not granted)
-- **pip-audit on current main: 0 known vulnerabilities** (verified 2026-10-12)
-- All 16 previously-reported vulnerabilities were in pyjwt 2.13.0 — fixed by PR #52 (pyjwt → 2.15.0, merged 2026-10-12)
-- Note: Dependabot API remains the source of truth; pip-audit used as supplementary check due to 403
+- **uv audit on current branch: 0 known vulnerabilities** (verified 2026-10-12)
+- mako 1.3.12→1.4.3, multidict 6.7.1→6.9.1, urllib3 2.7.0→2.8.0 — fixed in PR #57 (2026-10-12)
+- All 16 previously-reported pyjwt vulnerabilities — fixed by PR #52 (pyjwt → 2.15.0, merged 2026-10-12)
+- Note: Dependabot API remains the source of truth; uv audit used as supplementary check due to 403
 
 ## Recently merged
 
@@ -28,16 +29,14 @@ None.
 
 ## Todo — prioritized
 
-1. [HIGH] Scan result history UI — per-CIDR history on Networks page + `/api/v1/data/scan-results` list endpoint
-2. [HIGH] Agent health dashboard — Agents page showing CPU/memory/disk reported by agents on heartbeat
-3. [MEDIUM] Credential vault UI — `/credentials` page for managing the encrypted vault (list, add, delete)
-4. [MEDIUM] Network device detail page — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
-5. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
-6. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
-7. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
+1. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
+2. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
+3. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
 
 ## Done
 
+- feat(ui): device detail panel (interfaces/routes/VLANs/SNMP/config tabs) — PR #57
+- fix(deps): mako 1.3.12→1.4.3, multidict 6.7.1→6.9.1, urllib3 2.7.0→2.8.0 (8 advisories) — PR #57
 - fix(deps): pyjwt 2.13.0 → 2.15.0 (14 PYSEC advisories) — PR #52
 - feat(tls): track cert expires_at on agent registration and renewal — PR #51
 - feat: NVD monitor — server-side CVE poller with alert pipeline — PR #50
