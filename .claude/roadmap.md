@@ -2,40 +2,22 @@
 
 Last updated: 2026-10-12
 
-## Currently open PRs
+## Currently open PR
 
-- PR #52: chore(deps): bump pyjwt from 2.13.0 to 2.15.0 in the uv group — waiting for merge
-  - Security-related: yes (pyjwt 2.14.0 release notes reference security advisories)
-  - Author: dependabot[bot]
-  - Branch: dependabot/uv/uv-2118ef368f
-  - CI status: all checks green (GitGuardian ✓, Test Suite ✓, Integration Tests ✓)
-  - Mergeable: yes
-  - Notes: No reviews requested, no blocking feedback. Waiting for merge by maintainer. (re-verified 2026-10-12)
-
-- PR #54: docs(roadmap): sync state 2026-10-11 — PR #52 (pyjwt) still open/CI green — waiting for merge
-  - Security-related: no
-  - Branch: claude/wizardly-wozniak-va9qew
-  - CI status: all checks green (GitGuardian ✓, Test Suite ✓, Integration Tests ✓)
-  - Mergeable: yes
-  - Notes: Roadmap sync PR. Waiting for merge by maintainer. (verified 2026-10-12)
+None.
 
 ## Dependabot status
 
-- Unable to retrieve full Dependabot alert list via API
-- Error: HTTP 403 — "Resource not accessible by integration"
-- API endpoint: `GET /repos/tunisiano187/Discoverykastle/dependabot/alerts`
-- The GitHub token/integration does not have permission to read Dependabot alerts
-- Action required: Grant the GitHub App or token `security_events` read permission on the repository
-- **GitHub push output confirms: 16 open vulnerabilities on the default branch**
-  - 1 critical
-  - 7 high
-  - 8 moderate
-  - Details at: https://github.com/tunisiano187/Discoverykastle/security/dependabot
-- PR #52 (pyjwt 2.13.0→2.15.0) addresses at least the pyjwt advisory referenced in its changelog
+- API: HTTP 403 — "Resource not accessible by integration" (permission `security_events` read not granted)
+- **pip-audit on current main: 0 known vulnerabilities** (verified 2026-10-12)
+- All 16 previously-reported vulnerabilities were in pyjwt 2.13.0 — fixed by PR #52 (pyjwt → 2.15.0, merged 2026-10-12)
+- Note: Dependabot API remains the source of truth; pip-audit used as supplementary check due to 403
 
 ## Recently merged
 
-- PR #53: docs(roadmap): sync state — PR #52 (pyjwt) open/waiting, PRs #49–51 merged, Dependabot 403 — merged 2026-10-04
+- PR #54: docs(roadmap): sync state 2026-10-12 — merged 2026-10-12
+- PR #52: chore(deps): bump pyjwt from 2.13.0 to 2.15.0 (security fix) — merged 2026-10-12
+- PR #53: docs(roadmap): sync state — Dependabot 403 — merged 2026-10-04
 - PR #51: feat(tls): track cert expires_at on agent registration and renewal — merged 2026-10-01
 - PR #50: feat: NVD monitor — server-side CVE poller with alert pipeline — merged 2026-09-30
 - PR #49: feat: complete tenant isolation for all inventory endpoints — merged 2026-09-30
@@ -43,28 +25,20 @@ Last updated: 2026-10-12
 - PR #47: chore(deps): bump anyio from 4.14.1 to 4.14.2 — merged 2026-09-19
 - PR #46: fix(deps)+feat(db+ui+agent): nanoid · Alembic startup · scan history · agent health metrics — merged 2026-09-17
 - PR #45: feat(tls): mTLS cert rotation — renew endpoint + agent auto-renewal, 20 tests — merged 2026-09-06
-- PR #44: feat(ui): Hosts page — team assignment picker — merged 2026-09-06
-- PR #43: feat(agent): SNMP collector — v1/v2c/v3, OID mappings, 30 tests — merged 2026-09-06
-- PR #42: fix(data): dispatch CVE alerts for newly discovered high/critical vulns — merged 2026-09-06
 
 ## Todo — prioritized
 
-> NOTE: Security verification blocked — Dependabot alerts could not be retrieved (403). Feature work
-> is on hold until Dependabot alerts can be verified as clear or addressed.
-> PR #52 (pyjwt) and PR #54 (roadmap) are open and awaiting merge.
-
-1. [BLOCKED] Merge PR #52 — pyjwt 2.13.0 → 2.15.0 (security-related bump, CI green)
-2. [BLOCKED] Verify Dependabot alert status — requires `security_events` read permission on the integration
-3. [HIGH] Scan result history UI — per-CIDR history on Networks page + `/api/v1/data/scan-results` list endpoint
-4. [HIGH] Agent health dashboard — Agents page showing CPU/memory/disk reported by agents on heartbeat
-5. [MEDIUM] Credential vault UI — `/credentials` page for managing the encrypted vault (list, add, delete)
-6. [MEDIUM] Network device detail page — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
-7. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
-8. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
-9. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
+1. [HIGH] Scan result history UI — per-CIDR history on Networks page + `/api/v1/data/scan-results` list endpoint
+2. [HIGH] Agent health dashboard — Agents page showing CPU/memory/disk reported by agents on heartbeat
+3. [MEDIUM] Credential vault UI — `/credentials` page for managing the encrypted vault (list, add, delete)
+4. [MEDIUM] Network device detail page — Devices.tsx expand: vendor/model, interface table, SNMP OID tree
+5. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
+6. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
+7. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
 
 ## Done
 
+- fix(deps): pyjwt 2.13.0 → 2.15.0 (14 PYSEC advisories) — PR #52
 - feat(tls): track cert expires_at on agent registration and renewal — PR #51
 - feat: NVD monitor — server-side CVE poller with alert pipeline — PR #50
 - feat: complete tenant isolation for all inventory endpoints — PR #49
