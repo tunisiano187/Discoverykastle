@@ -4,10 +4,10 @@ Last updated: 2026-10-23
 
 ## Currently open PR
 
-- PR (pending): fix(deps): update certifi to address GHSA-6q48-6c7w-9gw2
+- PR #60: fix(deps): update certifi to address GHSA-6q48-6c7w-9gw2 — open
   - Security-related: yes
-  - Branch: security/dependabot-certifi-ghsa-6q48
   - Advisory: GHSA-6q48-6c7w-9gw2 (certifi bundles emSign root CAs with compromised intermediate CA keys)
+  - Branch: security/dependabot-certifi-ghsa-6q48
   - Package: certifi 2026.6.17 → 2026.10.23
   - CI status: pending
 
@@ -33,7 +33,7 @@ Last updated: 2026-10-23
 
 ## Todo — prioritized
 
-1. [SECURITY] certifi GHSA-6q48-6c7w-9gw2 — IN PROGRESS (this branch)
+1. [SECURITY] certifi GHSA-6q48-6c7w-9gw2 — IN PROGRESS (PR #60)
 2. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
 3. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
 4. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
