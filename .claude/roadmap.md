@@ -1,25 +1,22 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-10-23
+Last updated: 2026-11-06
 
 ## Currently open PR
 
-- PR #60: fix(deps): update certifi to address GHSA-6q48-6c7w-9gw2 — open
-  - Security-related: yes
-  - Advisory: GHSA-6q48-6c7w-9gw2 (certifi bundles emSign root CAs with compromised intermediate CA keys)
-  - Branch: security/dependabot-certifi-ghsa-6q48
-  - Package: certifi 2026.6.17 → 2026.10.23
-  - CI status: pending
+None.
 
 ## Dependabot status
 
-- API: HTTP 403 — "Resource not accessible by integration" (permission `security_events` read not granted)
-- **uv audit on security/dependabot-certifi-ghsa-6q48: 0 known vulnerabilities** (verified 2026-10-23)
-- certifi 2026.6.17→2026.10.23 (GHSA-6q48-6c7w-9gw2) — fixed in this branch
-- Note: Dependabot API remains the source of truth; uv audit used as supplementary check due to 403
+- API: HTTP 403 — "Resource not accessible by integration" (permission `security_events` read not granted to this integration)
+- **This is a persistent issue across all runs; Dependabot API remains inaccessible**
+- Supplementary check — `uv audit` (2026-11-06): **0 known vulnerabilities in 65 packages**
+- Note: `uv audit` is used as a supplementary check only. The Dependabot API is the source of truth for open alerts. Feature work is blocked until API access is restored or alerts are verified through another authoritative channel.
+- Security prioritization could not be completed safely via the GitHub API
 
 ## Recently merged
 
+- PR #60: fix(deps): update certifi to address GHSA-6q48-6c7w-9gw2 — merged 2026-10-24
 - PR #59: chore(deps-dev): bump vite from 8.2.0 to 8.3.4 — merged 2026-10-23
 - PR #58: chore(deps): bump aiohttp from 3.14.3 to 3.14.4 — merged 2026-10-20
 - PR #57: feat(ui)+fix(deps): device detail panel + bump mako/multidict/urllib3 — merged 2026-10-15
@@ -29,17 +26,17 @@ Last updated: 2026-10-23
 - PR #51: feat(tls): track cert expires_at on agent registration and renewal — merged 2026-10-01
 - PR #50: feat: NVD monitor — server-side CVE poller with alert pipeline — merged 2026-09-30
 - PR #49: feat: complete tenant isolation for all inventory endpoints — merged 2026-09-30
-- PR #47: chore(deps): bump anyio from 4.14.1 to 4.14.2 — merged 2026-09-19
 
 ## Todo — prioritized
 
-1. [SECURITY] certifi GHSA-6q48-6c7w-9gw2 — IN PROGRESS (PR #60)
+1. [SECURITY] Dependabot API unavailable (403) — cannot verify open alerts; feature work blocked until resolved
 2. [MEDIUM] Topology improvements — edge labels (port/service), drag-and-drop layout persistence
 3. [LOW] Alembic auto-generation — `alembic revision --autogenerate` guidance in CONTRIBUTING.md
-4. [LOW] Enroll in Anthropic OSS Scanner — ajouter `projects/discoverykastle/` (project.yaml + Dockerfile autosuffisant) une fois le projet en beta et le Dockerfile de prod finalisé (https://github.com/anthropics/oss-scanner)
+4. [LOW] Enroll in Anthropic OSS Scanner — add `projects/discoverykastle/` once project reaches beta
 
 ## Done
 
+- fix(deps): certifi 2026.6.17→2026.10.23 (GHSA-6q48-6c7w-9gw2) — PR #60
 - feat(ui): device detail panel (interfaces/routes/VLANs/SNMP/config tabs) — PR #57
 - fix(deps): mako 1.3.12→1.4.3, multidict 6.7.1→6.9.1, urllib3 2.7.0→2.8.0 (8 advisories) — PR #57
 - fix(deps): pyjwt 2.13.0 → 2.15.0 (14 PYSEC advisories) — PR #52
