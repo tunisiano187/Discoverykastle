@@ -1,6 +1,6 @@
 # Discoverykastle — Roadmap
 
-Last updated: 2026-11-06
+Last updated: 2026-11-20
 
 ## Currently open PR
 
@@ -10,12 +10,13 @@ None.
 
 - API: HTTP 403 — "Resource not accessible by integration" (permission `security_events` read not granted to this integration)
 - **This is a persistent issue across all runs; Dependabot API remains inaccessible**
-- Supplementary check — `uv audit` (2026-11-06): **0 known vulnerabilities in 65 packages**
+- Supplementary check — `uv audit` (2026-11-20): **0 known vulnerabilities in 65 packages**
 - Note: `uv audit` is used as a supplementary check only. The Dependabot API is the source of truth for open alerts. Feature work is blocked until API access is restored or alerts are verified through another authoritative channel.
 - Security prioritization could not be completed safely via the GitHub API
 
 ## Recently merged
 
+- PR #61: docs(roadmap): sync state 2026-11-06 — no open PRs, Dependabot 403 persists — merged 2026-11-06
 - PR #60: fix(deps): update certifi to address GHSA-6q48-6c7w-9gw2 — merged 2026-10-24
 - PR #59: chore(deps-dev): bump vite from 8.2.0 to 8.3.4 — merged 2026-10-23
 - PR #58: chore(deps): bump aiohttp from 3.14.3 to 3.14.4 — merged 2026-10-20
@@ -25,7 +26,6 @@ None.
 - PR #52: chore(deps): bump pyjwt from 2.13.0 to 2.15.0 (security fix) — merged 2026-10-12
 - PR #51: feat(tls): track cert expires_at on agent registration and renewal — merged 2026-10-01
 - PR #50: feat: NVD monitor — server-side CVE poller with alert pipeline — merged 2026-09-30
-- PR #49: feat: complete tenant isolation for all inventory endpoints — merged 2026-09-30
 
 ## Todo — prioritized
 
